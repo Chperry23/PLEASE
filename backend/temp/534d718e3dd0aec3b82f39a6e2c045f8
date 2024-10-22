@@ -1,0 +1,3 @@
+name,email,phone,street,city,state,zipCode,yardSize,notes
+John Doe,john@x.com,###,address,Anytown,CA,12345,5000,Sample note
+Jane Smith,jane@x.com,###,456 Elm St,Othertown,TX,67890,7500,Another note
