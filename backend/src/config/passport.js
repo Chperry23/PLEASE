@@ -2,17 +2,16 @@
 
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const User = require('../models/user'); // Adjust the path as necessary
+const User = require('../models/user');
 
-const callbackURL = `${process.env.URI}/api/auth/google/callback`;
-console.log(`Google OAuth Callback URL: ${callbackURL}`); // Verify the callback URL
-
+const callbackURL = `${process.env.API_URL}/api/auth/google/callback`;
+console.log(`Google OAuth Callback URL: ${callbackURL}`); // Add this line
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: callbackURL, // Ensure this matches your Google Cloud Console
+      callbackURL: callbackURL,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -43,14 +42,14 @@ passport.use(
           return done(null, user);
         }
 
-        // Create new user
+        // Create new user without an active subscription
         user = new User({
           googleId: profile.id,
           email: profile.emails[0].value,
           name: profile.displayName,
           googleRefreshToken: refreshToken,
-          subscriptionActive: true, // Assuming Free plan for Google sign-ins
-          subscriptionTier: 'Free',
+          subscriptionActive: false,
+          subscriptionTier: null, // No subscription tier assigned yet
         });
         await user.save();
         done(null, user);

@@ -23,7 +23,10 @@ import BuildRoutes from './pages/BuildRoutes';
 import RouteAssignments from './pages/RouteAssignments';
 import RouteMap from './pages/RouteMap';
 import SendNotifications from './pages/SendNotifications';
-import TrialEnded from './pages/TrialEnded';
+import CompleteProfile from './components/CompleteProfile';
+import About from './pages/About';
+import OAuthSuccess from './pages/OAuthSuccess';
+import PaymentSuccess from './pages/PaymentSuccess';
 
 function App() {
   return (
@@ -39,8 +42,11 @@ function App() {
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/login-success" element={<LoginSuccess />} />
-            <Route path="/trial-ended" element={<TrialEnded />} />
-
+            <Route path="/complete-profile" element={<CompleteProfile />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/oauth-success" element={<OAuthSuccess />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            
             {/* Protected Routes */}
             <Route
               path="/dashboard"

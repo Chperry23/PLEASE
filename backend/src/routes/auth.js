@@ -20,36 +20,32 @@ router.get(
   passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL}/signin` }),
   async (req, res) => {
     try {
-      console.log('Handling Google OAuth callback');
-
-      // User has been authenticated by Passport
-      const user = await User.findById(req.user._id);
-
-      if (!user) {
-        throw new Error('User not found after authentication');
-      }
-
-      console.log(`Authenticated user: ${user.email}`);
+      const user = req.user;
 
       // Generate JWT token
       const token = jwt.sign(
         {
           id: user._id,
           email: user.email,
-          subscriptionActive: user.subscriptionActive,
-          subscriptionTier: user.subscriptionTier,
         },
         process.env.JWT_SECRET,
-        { expiresIn: '1d' }
+        { expiresIn: '1h' }
       );
 
-      console.log(`Generated JWT token for user: ${user.email}`);
-
-      // Redirect to frontend's LoginSuccess component with token
-      res.redirect(`${process.env.FRONTEND_URL}/login-success?token=${token}`);
+      // Check if additional data is needed
+      if (!user.phoneNumber || !user.customerBaseSize || !user.jobTypes) {
+        // Redirect to frontend to collect additional data
+        res.redirect(`${process.env.FRONTEND_URL}/complete-profile?token=${token}`);
+      } else if (!user.subscriptionActive) {
+        // Redirect to frontend to initiate Stripe checkout
+        res.redirect(`${process.env.FRONTEND_URL}/pricing?token=${token}`);
+      } else {
+        // User has an active subscription
+        res.redirect(`${process.env.FRONTEND_URL}/dashboard?token=${token}`);
+      }
     } catch (error) {
       console.error('Error in Google OAuth callback:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/signin`); // Redirect to frontend sign-in page on error
+      res.redirect(`${process.env.FRONTEND_URL}/oauth-success?token=${token}`);
     }
   }
 );
@@ -57,18 +53,33 @@ router.get(
 // Register Route
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, plan } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phoneNumber,
+      customerBaseSize,
+      jobTypes,
+      plan,
+    } = req.body;
 
     if (!name || !email || !password || !plan) {
       return res.status(400).json({ error: 'All fields are required.' });
     }
 
-    if (typeof email !== 'string' || typeof password !== 'string') {
-      return res.status(400).json({ error: 'Email and password must be strings.' });
+    // Sanitize email
+    const sanitizedEmail = email.trim().toLowerCase();
+
+    // Password validation
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.{8,})/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters, include an uppercase letter and a special character.',
+      });
     }
 
-    // Check if user already exists
-    let user = await User.findOne({ email });
+    // Check if user already exists (case-insensitive)
+    let user = await User.findOne({ email: { $regex: `^${sanitizedEmail}$`, $options: 'i' } });
     if (user) {
       return res.status(400).json({ error: 'User already exists.' });
     }
@@ -76,21 +87,16 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Determine subscription status based on plan
-    let subscriptionActive = false;
-    if (plan === 'Free') {
-      subscriptionActive = true; // Free users have access
-    } else {
-      subscriptionActive = false; // Paid plans require payment
-    }
-
     // Create new user
     user = new User({
       name,
-      email,
+      email: sanitizedEmail,
       password: hashedPassword,
-      subscriptionTier: plan, // Changed from subscriptionPlan
-      subscriptionActive,
+      phoneNumber,
+      customerBaseSize,
+      jobTypes,
+      subscriptionTier: plan,
+      subscriptionActive: false, // Will be activated after Stripe checkout
     });
 
     await user.save();
@@ -100,8 +106,6 @@ router.post('/register', async (req, res) => {
       {
         id: user._id,
         email: user.email,
-        subscriptionActive: user.subscriptionActive,
-        subscriptionTier: user.subscriptionTier, // Changed from subscriptionPlan
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
@@ -124,8 +128,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password must be strings.' });
     }
 
+    // Sanitize email
+    const sanitizedEmail = email.trim().toLowerCase();
+
     // Ensure the password field is selected in the query
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: { $regex: `^${sanitizedEmail}$`, $options: 'i' } }).select('+password');
     if (!user) {
       console.error('User not found');
       return res.status(401).json({ error: 'Invalid credentials.' });
@@ -144,7 +151,7 @@ router.post('/login', async (req, res) => {
         id: user._id,
         email: user.email,
         subscriptionActive: user.subscriptionActive,
-        subscriptionTier: user.subscriptionTier, // Changed from subscriptionPlan
+        subscriptionTier: user.subscriptionTier,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
@@ -230,6 +237,14 @@ router.post('/change-password', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required.' });
     }
 
+    // Password validation
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.{8,})/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        error: 'New password must be at least 8 characters, include an uppercase letter and a special character.',
+      });
+    }
+
     // Find the user and include the password field
     const user = await User.findById(userId).select('+password');
 
@@ -255,11 +270,6 @@ router.post('/change-password', authMiddleware, async (req, res) => {
     console.error('Error changing password:', error);
     res.status(500).json({ error: 'Server error.' });
   }
-});
-
-// Example of a Correct Route Definition
-router.get('/example-route', (req, res) => {
-  res.send('This is an example route.');
 });
 
 module.exports = router;

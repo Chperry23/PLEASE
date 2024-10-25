@@ -1,3 +1,5 @@
+// backend/src/models/Profile.js
+
 const mongoose = require('mongoose');
 
 const serviceSchema = new mongoose.Schema({
@@ -51,8 +53,8 @@ const profileSchema = new mongoose.Schema({
   },
   subscriptionTier: {
     type: String,
-    enum: ['Free', 'Basic', 'Pro', 'Enterprise'],
-    default: 'Free',
+    enum: ['Basic', 'Pro', 'Enterprise'], 
+    default: null, // Set default to null
   },
   subscriptionActive: {
     type: Boolean,

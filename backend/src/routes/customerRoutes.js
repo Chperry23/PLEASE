@@ -3,22 +3,21 @@ const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customerController');
 const auth = require('../middleware/auth');
-const checkTrial = require('../middleware/checkTrial'); // Import the checkTrial middleware
+// Removed checkTrial middleware import
 const multer = require('multer');
 const upload = multer({ dest: 'temp/' });
 
 // ========================
-// Customer Routes (With Trial Checks)
+// Customer Routes
 // ========================
 
-// All customer routes require authentication and trial verification
-router.get('/', auth, checkTrial(), customerController.getAllCustomers);
-router.post('/', auth, checkTrial(), customerController.createCustomer);
-router.get('/:id', auth, checkTrial(), customerController.getCustomer);
-router.put('/:id', auth, checkTrial(), customerController.updateCustomer);
-router.delete('/:id', auth, checkTrial(), customerController.deleteCustomer);
-router.post('/import', auth, checkTrial(), upload.single('file'), customerController.importCustomers);
-router.get('/:id/lifetime-value', auth, checkTrial(), customerController.getCustomerLifetimeValue);
-router.put('/:id/status', auth, checkTrial(), customerController.updateCustomerStatus);
+router.get('/', auth, customerController.getAllCustomers);
+router.post('/', auth, customerController.createCustomer);
+router.get('/:id', auth, customerController.getCustomer);
+router.put('/:id', auth, customerController.updateCustomer);
+router.delete('/:id', auth, customerController.deleteCustomer);
+router.post('/import', auth, upload.single('file'), customerController.importCustomers);
+router.get('/:id/lifetime-value', auth, customerController.getCustomerLifetimeValue);
+router.put('/:id/status', auth, customerController.updateCustomerStatus);
 
 module.exports = router;

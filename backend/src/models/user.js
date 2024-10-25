@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     googleId: {
       type: String,
       unique: true,
-      sparse: true, // Allows multiple null entries
+      sparse: true,
     },
     email: {
       type: String,
@@ -21,36 +21,29 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: function () {
-        return !this.googleId; // Password is required if not signing up with Google
+        return !this.googleId;
       },
-      select: false, // Exclude password by default
+      select: false,
     },
     googleAccessToken: String,
     googleRefreshToken: String,
+    phoneNumber: String,
+    customerBaseSize: Number,
+    jobTypes: String,
     subscriptionTier: {
       type: String,
-      enum: ['Free', 'Basic', 'Pro', 'Enterprise'],
-      default: 'Free',
+      enum: ['Basic', 'Pro', 'Enterprise',null],
+      default: 'Basic', // Set default to 'Basic' if that's the starting plan
     },
     subscriptionActive: {
-      // Indicates if subscription is active
       type: Boolean,
-      default: true, // Active during trial
+      default: false,
     },
-    stripeCustomerId: { 
-      type: String 
-    }, // Store Stripe Customer ID
-    stripeSubscriptionId: { 
-      type: String 
-    }, // Store Stripe Subscription ID
-    trialStartDate: {
-      // Date when trial started
-      type: Date,
-      default: Date.now,
+    stripeCustomerId: {
+      type: String,
     },
-    trialEndDate: {
-      // Date when trial ends (7 days after start)
-      type: Date,
+    stripeSubscriptionId: {
+      type: String,
     },
     role: {
       type: String,
@@ -73,10 +66,9 @@ const userSchema = new mongoose.Schema(
         push: { type: Boolean, default: false },
       },
     },
-    // Business Info Field
     businessInfo: {
       name: String,
-      logo: String, // Path or URL to the logo image
+      logo: String,
       address: String,
       phone: String,
       email: String,
@@ -88,16 +80,8 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Pre-save hook to set trialEndDate if not set
-userSchema.pre('save', function (next) {
-  if (this.subscriptionTier === 'Free' && !this.trialEndDate) {
-    // Set trial end date to 30 seconds after trialStartDate for testing
-    this.trialEndDate = new Date(this.trialStartDate.getTime() + 30 * 1000); // 30 seconds
-  }
-  next();
-});
 
-// Replace deprecated ensureIndex with createIndexes
-userSchema.index({ email: 1 }, { unique: true }); // Example index
+// Create index on email
+userSchema.index({ email: 1 }, { unique: true });
 
-module.exports = mongoose.models.User || mongoose.model('User', userSchema);
+module.exports = mongoose.model('User', userSchema);
