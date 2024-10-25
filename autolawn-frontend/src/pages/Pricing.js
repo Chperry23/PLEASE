@@ -1,12 +1,11 @@
-// src/pages/Pricing.js
+// frontend/src/pages/Pricing.js
 
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
-import axiosInstance from '../utils/axiosInstance'; // Use axiosInstance
-import getStripe from '../utils/stripe';
+import axiosInstance from '../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+import { useAuth } from '../contexts/AuthContext';
 
 const PricingTier = ({ tier, handleCheckout }) => (
   <div
@@ -42,30 +41,37 @@ const PricingTier = ({ tier, handleCheckout }) => (
       className={`mt-6 w-full py-2 px-4 rounded ${
         tier.recommended ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'
       } font-semibold`}
-      onClick={() => handleCheckout(tier.priceId, tier.name)}
+      onClick={() => handleCheckout(tier.priceId, tier.name, tier.paymentLink)}
     >
-      {tier.name === 'Free' ? 'Select Free' : 'Choose Plan'}
+      Choose Plan
     </button>
   </div>
 );
 
 const Pricing = () => {
   const [tiers, setTiers] = useState([]);
-  const { setSubscriptionTier } = useAuth(); // Use setSubscriptionTier from AuthContext
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        const response = await axiosInstance.get(
-          `${process.env.REACT_APP_API_URL}/api/payment/prices`
-        );
+        const response = await axiosInstance.get('/api/payment/prices');
         const prices = response.data;
+
+        // Map Payment Links to tiers
+        const paymentLinks = {
+          Basic: 'https://buy.stripe.com/test_4gwdSBayLcec99ebII', // Test Payment Link for Basic plan
+          Pro: 'https://buy.stripe.com/...', // Replace with your test mode link for Pro
+          Enterprise: 'https://buy.stripe.com/...', // Replace with your test mode link for Enterprise
+        };
 
         // Map prices to tiers
         const priceTiers = prices.map((price) => {
           const tierName = price.nickname || price.product.name;
           const tierFeatures = getFeaturesForTier(tierName);
+
+          const paymentLink = paymentLinks[tierName];
 
           return {
             name: tierName,
@@ -74,22 +80,15 @@ const Pricing = () => {
             priceId: price.id,
             recommended: tierName === 'Pro',
             features: tierFeatures,
+            paymentLink,
           };
         });
 
-        // Define the Free tier manually
-        const freeTier = {
-          name: 'Free',
-          priceAmount: '0.00',
-          priceInterval: 'month',
-          priceId: null,
-          recommended: false,
-          features: getFeaturesForTier('Free'),
-        };
+        const filteredTiers = priceTiers.filter((tier) => tier.name !== 'Free');
 
         // Arrange tiers in the desired order
-        const orderedTiers = [freeTier, ...priceTiers].sort((a, b) => {
-          const order = ['Free', 'Basic', 'Pro', 'Enterprise'];
+        const orderedTiers = filteredTiers.sort((a, b) => {
+          const order = ['Basic', 'Pro', 'Enterprise'];
           return order.indexOf(a.name) - order.indexOf(b.name);
         });
 
@@ -108,15 +107,6 @@ const Pricing = () => {
   const getFeaturesForTier = (tierName) => {
     // Define features for each tier
     const features = {
-      Free: [
-        { text: 'Up to 10 customers', included: true },
-        { text: 'Basic scheduling', included: true },
-        { text: 'Limited job tracking', included: true },
-        { text: 'Email support', included: true },
-        { text: 'Route optimization', included: false },
-        { text: 'Advanced analytics', included: false },
-        { text: 'Team management', included: false },
-      ],
       Basic: [
         { text: 'Up to 50 customers', included: true },
         { text: 'Advanced scheduling', included: true },
@@ -148,52 +138,19 @@ const Pricing = () => {
     return features[tierName] || [];
   };
 
-  const handleCheckout = async (priceId, tierName) => {
-    if (tierName === 'Free') {
-      // Directly set user's subscription to Free without payment
-      try {
-        const response = await axiosInstance.post(
-          `${process.env.REACT_APP_API_URL}/api/auth/set-subscription-tier`,
-          { tier: 'Free' },
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`, // Include token if required
-            },
-          }
-        );
-        if (response.data.user) {
-          // Update AuthContext
-          setSubscriptionTier(response.data.user);
-          alert('Successfully set to Free tier.');
-          navigate('/dashboard');
-        }
-      } catch (error) {
-        console.error('Error setting Free tier:', error);
-        alert('An error occurred. Please try again.');
-      }
-    } else {
-      try {
-        const response = await axiosInstance.post(
-          `${process.env.REACT_APP_API_URL}/api/payment/create-checkout-session`,
-          { priceId, plan: tierName }, // Include 'plan' here
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`, // Include token if required
-            },
-          }
-        );
-        const { sessionId } = response.data;
-        const stripe = await getStripe();
-        const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
-        if (stripeError) {
-          console.error('Stripe redirect error:', stripeError);
-          alert('An error occurred during checkout. Please try again.');
-        }
-      } catch (error) {
-        console.error('Error redirecting to checkout:', error);
-        alert('An error occurred. Please try again.');
-      }
+  const handleCheckout = (priceId, tierName, paymentLink) => {
+    if (!user) {
+      // User is not logged in, redirect to registration with selected plan
+      navigate('/register', { state: { plan: tierName, priceId, paymentLink } });
+      return;
     }
+
+    // Append client_reference_id to the payment link
+    const url = new URL(paymentLink);
+    url.searchParams.append('client_reference_id', user.id);
+
+    // Redirect to the Payment Link with user ID
+    window.location.href = url.toString();
   };
 
   return (
@@ -204,7 +161,7 @@ const Pricing = () => {
         <p className="text-xl text-center mb-12">
           Select the perfect plan to grow your lawn care business with AUTOLAWN
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {tiers.map((tier, index) => (
             <PricingTier key={index} tier={tier} handleCheckout={handleCheckout} />
           ))}

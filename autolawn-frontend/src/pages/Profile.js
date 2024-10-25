@@ -27,7 +27,7 @@ const ProfileDisplay = ({ profile }) => {
     level = 1,
     experience = 0,
     setupSteps = {},
-    subscriptionTier = 'Free',
+    subscriptionTier,
     subscriptionActive = false,
     services = []
   } = profile;

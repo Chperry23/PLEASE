@@ -1,4 +1,3 @@
-// frontend/src/utils/axiosInstance.js
 import axios from 'axios';
 
 const axiosInstance = axios.create({
@@ -8,8 +7,10 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('Token retrieved from localStorage:', token); // Debugging log
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Authorization header set with token:', config.headers.Authorization); // Debugging log
     }
     return config;
   },

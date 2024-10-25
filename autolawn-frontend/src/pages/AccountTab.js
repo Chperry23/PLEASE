@@ -1,3 +1,5 @@
+// frontend/src/pages/AccountTab.js
+
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../utils/axiosInstance';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -31,7 +33,7 @@ const AccountTab = ({ profile: initialProfile, onAccountUpdate }) => {
         setProfile(prevProfile => ({
           ...prevProfile,
           subscriptionActive: false,
-          subscriptionTier: 'Free',
+          subscriptionTier: null, 
           cancellationRequested: true,
           subscriptionEndDate: response.data.cancelAt
         }));
@@ -61,7 +63,7 @@ const AccountTab = ({ profile: initialProfile, onAccountUpdate }) => {
   return (
     <div className="space-y-6 text-white">
       <h2 className="text-2xl font-bold">Account Details</h2>
-      <p><strong>Subscription Tier:</strong> {profile.subscriptionTier}</p>
+      <p><strong>Subscription Tier:</strong> {profile.subscriptionTier || 'None'}</p>
       <p><strong>Subscription Status:</strong> {profile.subscriptionActive ? 'Active' : 'Inactive'}</p>
       {profile.cancellationRequested && profile.subscriptionEndDate && (
         <p><strong>Subscription End Date:</strong> {new Date(profile.subscriptionEndDate).toLocaleDateString()}</p>

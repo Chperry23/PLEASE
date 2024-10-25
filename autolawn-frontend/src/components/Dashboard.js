@@ -1,3 +1,5 @@
+// frontend/src/pages/Dashboard.js
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -30,7 +32,9 @@ import {
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { fetchJobs, fetchCustomers, fetchEmployees, fetchAnalytics } from '../api/dashboardApi';
-import TrialTimer from '../components/TrialTimer';
+
+// Removed import for TrialTimer
+// import TrialTimer from '../components/TrialTimer';
 
 ChartJS.register(
   CategoryScale,
@@ -101,11 +105,7 @@ const Dashboard = () => {
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error.response?.data || error.message);
-      if (error.response && error.response.status === 403) {
-        navigate('/trial-ended');
-      } else {
-        setError('Failed to load dashboard data. Please try again.');
-      }
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -284,17 +284,6 @@ const Dashboard = () => {
       <Header />
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {user?.subscriptionTier === 'Free' && (
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
-            <TrialTimer trialEndDate={user.trialEndDate} />
-            <Link
-              to="/pricing"
-              className="mt-4 sm:mt-0 bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600"
-            >
-              Upgrade Now
-            </Link>
-          </div>
-        )}
 
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Welcome, {user?.name || 'User'}</h1>

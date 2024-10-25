@@ -1,3 +1,5 @@
+// frontend/src/components/ProtectedRoute.js
+
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,16 +16,10 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
 
-  const isTrialExpired = user.subscriptionTier === 'Free' && new Date() > new Date(user.trialEndDate);
-
-  if (isTrialExpired) {
-    return <Navigate to="/trial-ended" replace />;
-  }
-
-  if (!user.subscriptionActive && user.subscriptionTier !== 'Free') {
+  if (!user.subscriptionActive) {
     return <Navigate to="/pricing" replace />;
   }
-
+  
   return children;
 };
 
