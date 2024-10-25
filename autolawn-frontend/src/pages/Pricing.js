@@ -61,9 +61,9 @@ const Pricing = () => {
 
         // Map Payment Links to tiers
         const paymentLinks = {
-          Basic: 'https://buy.stripe.com/test_4gwdSBayLcec99ebII', // Test Payment Link for Basic plan
-          Pro: 'https://buy.stripe.com/...', // Replace with your test mode link for Pro
-          Enterprise: 'https://buy.stripe.com/...', // Replace with your test mode link for Enterprise
+          Basic: 'https://buy.stripe.com/00gaGf36G05W84EeUU', // Test Payment Link for Basic plan
+          Pro: 'https://buy.stripe.com/28oaGf9v47yoacMaEF', // Replace with your test mode link for Pro
+          Enterprise: 'https://buy.stripe.com/4gw29J7mWg4U98I002', // Replace with your test mode link for Enterprise
         };
 
         // Map prices to tiers
