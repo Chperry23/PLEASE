@@ -41,7 +41,7 @@ const PricingTier = ({ tier, handleCheckout }) => (
       className={`mt-6 w-full py-2 px-4 rounded ${
         tier.recommended ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'
       } font-semibold`}
-      onClick={() => handleCheckout(tier.priceId, tier.name, tier.paymentLink)}
+      onClick={() => handleCheckout(tier.priceId, tier.name)}
     >
       Choose Plan
     </button>
@@ -53,25 +53,30 @@ const Pricing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Define payment links as variables
+  const basicLink = 'https://buy.stripe.com/00gaGf36G05W84EeUU';
+  const proLink = 'https://buy.stripe.com/28oaGf9v47yoacMaEF';
+  const enterpriseLink = 'https://buy.stripe.com/4gw29J7mWg4U98I002';
+
   useEffect(() => {
     const fetchPrices = async () => {
       try {
         const response = await axiosInstance.get('/api/payment/prices');
         const prices = response.data;
 
-        // Map Payment Links to tiers
-        const paymentLinks = {
-          Basic: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
-          Pro: 'https://buy.stripe.com/28oaGf9v47yoacMaEF', 
-          Enterprise: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
-        };
-
         // Map prices to tiers
         const priceTiers = prices.map((price) => {
           const tierName = price.nickname || price.product.name;
-          const tierFeatures = getFeaturesForTier(tierName);
+          let paymentLink;
 
-          const paymentLink = paymentLinks[tierName];
+          // Assign payment link based on tier name
+          if (tierName === 'Basic') {
+            paymentLink = basicLink;
+          } else if (tierName === 'Pro') {
+            paymentLink = proLink;
+          } else if (tierName === 'Enterprise') {
+            paymentLink = enterpriseLink;
+          }
 
           return {
             name: tierName,
@@ -79,8 +84,8 @@ const Pricing = () => {
             priceInterval: price.recurring ? price.recurring.interval : 'one-time',
             priceId: price.id,
             recommended: tierName === 'Pro',
-            features: tierFeatures,
-            paymentLink,
+            features: getFeaturesForTier(tierName),
+            paymentLink, // Ensure this is correctly set
           };
         });
 
@@ -138,20 +143,34 @@ const Pricing = () => {
     return features[tierName] || [];
   };
 
-  const handleCheckout = (priceId, tierName, paymentLink) => {
+  const handleCheckout = (priceId, tierName) => {
+    let paymentLink;
+
+    // Set the correct payment link based on the tier
+    if (tierName === 'Basic') {
+      paymentLink = basicLink;
+    } else if (tierName === 'Pro') {
+      paymentLink = proLink;
+    } else if (tierName === 'Enterprise') {
+      paymentLink = enterpriseLink;
+    }
+
+    if (!paymentLink) {
+      console.error('Error: Payment link is missing for', tierName);
+      return;
+    }
+
     if (!user) {
       // User is not logged in, redirect to registration with selected plan
       navigate('/register', { state: { plan: tierName, priceId, paymentLink } });
       return;
     }
-  
-    console.log('Payment Link:', paymentLink); // Log the payment link to debug
-  
+
     try {
       // Append client_reference_id to the payment link
-      const url = new URL(paymentLink); // Error is likely happening here if paymentLink is invalid
+      const url = new URL(paymentLink);
       url.searchParams.append('client_reference_id', user.id);
-  
+
       // Redirect to the Payment Link with user ID
       window.location.href = url.toString();
     } catch (error) {
