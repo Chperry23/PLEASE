@@ -7,11 +7,6 @@ import axiosInstance from '../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-// Hardcoded payment links
-const basicLink = 'https://buy.stripe.com/00gaGf36G05W84EeUU';
-const proLink = 'https://buy.stripe.com/28oaGf9v47yoacMaEF';
-const enterpriseLink = 'https://buy.stripe.com/4gw29J7mWg4U98I002';
-
 const PricingTier = ({ tier, handleCheckout }) => (
   <div
     className={`bg-surface p-6 rounded-lg shadow-md ${
@@ -64,17 +59,22 @@ const Pricing = () => {
         const response = await axiosInstance.get('/api/payment/prices');
         const prices = response.data;
 
-        // Map prices to tiers
+        // Define your payment links here
+        const basicLink = 'https://buy.stripe.com/00gaGf36G05W84EeUU';
+        const proLink = 'https://buy.stripe.com/28oaGf9v47yoacMaEF';
+        const enterpriseLink = 'https://buy.stripe.com/4gw29J7mWg4U98I002';
+
         const priceTiers = prices.map((price) => {
           const tierName = price.nickname || price.product.name;
-          let paymentLink = '';
 
           // Assign the correct payment link based on tier
+          let paymentLink = '';
           if (tierName === 'Basic') paymentLink = basicLink;
           if (tierName === 'Pro') paymentLink = proLink;
           if (tierName === 'Enterprise') paymentLink = enterpriseLink;
 
-          console.log(`Payment Link for ${tierName}:`, paymentLink); // Log each payment link
+          // Log the tier name and corresponding payment link
+          console.log(`Tier Name: ${tierName}, Payment Link: ${paymentLink}`);
 
           return {
             name: tierName,
@@ -83,7 +83,7 @@ const Pricing = () => {
             priceId: price.id,
             recommended: tierName === 'Pro',
             features: getFeaturesForTier(tierName),
-            paymentLink,  // Ensure this is correctly set
+            paymentLink,  // Correctly set the payment link
           };
         });
 
@@ -98,9 +98,7 @@ const Pricing = () => {
         setTiers(orderedTiers);
       } catch (error) {
         console.error('Error fetching prices:', error);
-        alert(
-          'An error occurred while fetching pricing information. Please try again later.'
-        );
+        alert('An error occurred while fetching pricing information. Please try again later.');
       }
     };
 
@@ -176,9 +174,7 @@ const Pricing = () => {
           ))}
         </div>
         <div className="mt-16 text-center">
-          <h2 className="text-2xl font-semibold mb-4">
-            Not sure which plan is right for you?
-          </h2>
+          <h2 className="text-2xl font-semibold mb-4">Not sure which plan is right for you?</h2>
           <a
             href="/contact"
             className="bg-primary text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-opacity-90 transition duration-300"
