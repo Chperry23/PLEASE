@@ -7,6 +7,11 @@ import axiosInstance from '../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+// Hardcoded payment links
+const basicLink = 'https://buy.stripe.com/00gaGf36G05W84EeUU';
+const proLink = 'https://buy.stripe.com/28oaGf9v47yoacMaEF';
+const enterpriseLink = 'https://buy.stripe.com/4gw29J7mWg4U98I002';
+
 const PricingTier = ({ tier, handleCheckout }) => (
   <div
     className={`bg-surface p-6 rounded-lg shadow-md ${
@@ -41,7 +46,7 @@ const PricingTier = ({ tier, handleCheckout }) => (
       className={`mt-6 w-full py-2 px-4 rounded ${
         tier.recommended ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'
       } font-semibold`}
-      onClick={() => handleCheckout(tier.priceId, tier.name)}
+      onClick={() => handleCheckout(tier.priceId, tier.name, tier.paymentLink)}
     >
       Choose Plan
     </button>
@@ -53,11 +58,6 @@ const Pricing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Define payment links as variables
-  const basicLink = 'https://buy.stripe.com/00gaGf36G05W84EeUU';
-  const proLink = 'https://buy.stripe.com/28oaGf9v47yoacMaEF';
-  const enterpriseLink = 'https://buy.stripe.com/4gw29J7mWg4U98I002';
-
   useEffect(() => {
     const fetchPrices = async () => {
       try {
@@ -67,16 +67,14 @@ const Pricing = () => {
         // Map prices to tiers
         const priceTiers = prices.map((price) => {
           const tierName = price.nickname || price.product.name;
-          let paymentLink;
+          let paymentLink = '';
 
-          // Assign payment link based on tier name
-          if (tierName === 'Basic') {
-            paymentLink = basicLink;
-          } else if (tierName === 'Pro') {
-            paymentLink = proLink;
-          } else if (tierName === 'Enterprise') {
-            paymentLink = enterpriseLink;
-          }
+          // Assign the correct payment link based on tier
+          if (tierName === 'Basic') paymentLink = basicLink;
+          if (tierName === 'Pro') paymentLink = proLink;
+          if (tierName === 'Enterprise') paymentLink = enterpriseLink;
+
+          console.log(`Payment Link for ${tierName}:`, paymentLink); // Log each payment link
 
           return {
             name: tierName,
@@ -85,7 +83,7 @@ const Pricing = () => {
             priceId: price.id,
             recommended: tierName === 'Pro',
             features: getFeaturesForTier(tierName),
-            paymentLink, // Ensure this is correctly set
+            paymentLink,  // Ensure this is correctly set
           };
         });
 
@@ -143,32 +141,18 @@ const Pricing = () => {
     return features[tierName] || [];
   };
 
-  const handleCheckout = (priceId, tierName) => {
-    let paymentLink;
-
-    // Set the correct payment link based on the tier
-    if (tierName === 'Basic') {
-      paymentLink = basicLink;
-    } else if (tierName === 'Pro') {
-      paymentLink = proLink;
-    } else if (tierName === 'Enterprise') {
-      paymentLink = enterpriseLink;
-    }
-
-    if (!paymentLink) {
-      console.error('Error: Payment link is missing for', tierName);
-      return;
-    }
-
+  const handleCheckout = (priceId, tierName, paymentLink) => {
     if (!user) {
       // User is not logged in, redirect to registration with selected plan
       navigate('/register', { state: { plan: tierName, priceId, paymentLink } });
       return;
     }
 
+    console.log('Payment Link:', paymentLink); // Log the payment link to debug
+
     try {
       // Append client_reference_id to the payment link
-      const url = new URL(paymentLink);
+      const url = new URL(paymentLink); // Error is likely happening here if paymentLink is invalid
       url.searchParams.append('client_reference_id', user.id);
 
       // Redirect to the Payment Link with user ID
