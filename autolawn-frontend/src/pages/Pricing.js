@@ -59,31 +59,28 @@ const Pricing = () => {
         const response = await axiosInstance.get('/api/payment/prices');
         const prices = response.data;
 
-        // Define your payment links here
-        const basicLink = 'https://buy.stripe.com/00gaGf36G05W84EeUU';
-        const proLink = 'https://buy.stripe.com/28oaGf9v47yoacMaEF';
-        const enterpriseLink = 'https://buy.stripe.com/4gw29J7mWg4U98I002';
+        // Map product IDs to their respective payment links
+        const paymentLinks = {
+          'prod_R2TeQ4r5iOH6CG': 'https://buy.stripe.com/00gaGf36G05W84EeUU', // Basic
+          'prod_R2TfmQYMHxix1e': 'https://buy.stripe.com/28oaGf9v47yoacMaEF', // Pro
+          'prod_R2TgIYi0HUAYxf': 'https://buy.stripe.com/4gw29J7mWg4U98I002', // Enterprise
+        };
 
         const priceTiers = prices.map((price) => {
-          const tierName = price.nickname || price.product.name;
+          const productId = price.product; // Use the product ID
+          const paymentLink = paymentLinks[productId];
 
-          // Assign the correct payment link based on tier
-          let paymentLink = '';
-          if (tierName === 'Basic') paymentLink = basicLink;
-          if (tierName === 'Pro') paymentLink = proLink;
-          if (tierName === 'Enterprise') paymentLink = enterpriseLink;
-
-          // Log the tier name and corresponding payment link
-          console.log(`Tier Name: ${tierName}, Payment Link: ${paymentLink}`);
+          // Log the product ID and payment link for debugging
+          console.log(`Product ID: ${productId}, Payment Link: ${paymentLink}`);
 
           return {
-            name: tierName,
+            name: price.nickname || 'Unnamed Plan',  // Use the nickname, or fallback to a generic name
             priceAmount: (price.unit_amount / 100).toFixed(2),
             priceInterval: price.recurring ? price.recurring.interval : 'one-time',
             priceId: price.id,
-            recommended: tierName === 'Pro',
-            features: getFeaturesForTier(tierName),
-            paymentLink,  // Correctly set the payment link
+            recommended: productId === 'prod_R2TfmQYMHxix1e', // Mark Pro as recommended
+            features: getFeaturesForTier(productId),
+            paymentLink,  // Use the payment link mapped to the product ID
           };
         });
 
@@ -105,10 +102,10 @@ const Pricing = () => {
     fetchPrices();
   }, []);
 
-  const getFeaturesForTier = (tierName) => {
-    // Define features for each tier
+  const getFeaturesForTier = (productId) => {
+    // Define features for each tier based on product ID
     const features = {
-      Basic: [
+      'prod_R2TeQ4r5iOH6CG': [
         { text: 'Up to 50 customers', included: true },
         { text: 'Advanced scheduling', included: true },
         { text: 'Full job tracking', included: true },
@@ -117,7 +114,7 @@ const Pricing = () => {
         { text: 'Basic analytics', included: true },
         { text: 'Team management', included: false },
       ],
-      Pro: [
+      'prod_R2TfmQYMHxix1e': [
         { text: 'Unlimited customers', included: true },
         { text: 'Advanced scheduling', included: true },
         { text: 'Full job tracking', included: true },
@@ -126,7 +123,7 @@ const Pricing = () => {
         { text: 'Advanced analytics', included: true },
         { text: 'Team management', included: true },
       ],
-      Enterprise: [
+      'prod_R2TgIYi0HUAYxf': [
         { text: 'Unlimited customers', included: true },
         { text: 'Advanced scheduling', included: true },
         { text: 'Full job tracking', included: true },
@@ -136,7 +133,7 @@ const Pricing = () => {
         { text: 'Advanced team management', included: true },
       ],
     };
-    return features[tierName] || [];
+    return features[productId] || [];
   };
 
   const handleCheckout = (priceId, tierName, paymentLink) => {
