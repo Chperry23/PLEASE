@@ -59,30 +59,28 @@ const Pricing = () => {
         const response = await axiosInstance.get('/api/payment/prices');
         const prices = response.data;
 
-        // Map product IDs to their respective payment links
+        // Map Payment Links to tiers
         const paymentLinks = {
-          'prod_R2TeQ4r5iOH6CG': 'https://buy.stripe.com/00gaGf36G05W84EeUU', // Basic
-          'prod_R2TfmQYMHxix1e': 'https://buy.stripe.com/28oaGf9v47yoacMaEF', // Pro
-          'prod_R2TgIYi0HUAYxf': 'https://buy.stripe.com/4gw29J7mWg4U98I002', // Enterprise
+          Basic: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
+          Pro: 'https://buy.stripe.com/28oaGf9v47yoacMaEF',
+          Enterprise: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
         };
 
+        // Map prices to tiers
         const priceTiers = prices.map((price) => {
-          // If `price.product` is an object, access its ID property
-          const productId = typeof price.product === 'object' ? price.product.id : price.product;
+          const tierName = price.nickname || price.product.name;
+          const paymentLink = paymentLinks[tierName];
 
-          const paymentLink = paymentLinks[productId];
-
-          // Log the product ID and payment link for debugging
-          console.log(`Product ID: ${productId}, Payment Link: ${paymentLink}`);
+          console.log(`Payment Link for ${tierName}:`, paymentLink); // Log each payment link
 
           return {
-            name: price.nickname || 'Unnamed Plan',  // Use the nickname, or fallback to a generic name
+            name: tierName,
             priceAmount: (price.unit_amount / 100).toFixed(2),
             priceInterval: price.recurring ? price.recurring.interval : 'one-time',
             priceId: price.id,
-            recommended: productId === 'prod_R2TfmQYMHxix1e', // Mark Pro as recommended
-            features: getFeaturesForTier(productId),
-            paymentLink,  // Use the payment link mapped to the product ID
+            recommended: tierName === 'Pro',
+            features: getFeaturesForTier(tierName),
+            paymentLink,  // Ensure this is correctly set
           };
         });
 
@@ -97,17 +95,19 @@ const Pricing = () => {
         setTiers(orderedTiers);
       } catch (error) {
         console.error('Error fetching prices:', error);
-        alert('An error occurred while fetching pricing information. Please try again later.');
+        alert(
+          'An error occurred while fetching pricing information. Please try again later.'
+        );
       }
     };
 
     fetchPrices();
   }, []);
 
-  const getFeaturesForTier = (productId) => {
-    // Define features for each tier based on product ID
+  const getFeaturesForTier = (tierName) => {
+    // Define features for each tier
     const features = {
-      'prod_R2TeQ4r5iOH6CG': [
+      Basic: [
         { text: 'Up to 50 customers', included: true },
         { text: 'Advanced scheduling', included: true },
         { text: 'Full job tracking', included: true },
@@ -116,7 +116,7 @@ const Pricing = () => {
         { text: 'Basic analytics', included: true },
         { text: 'Team management', included: false },
       ],
-      'prod_R2TfmQYMHxix1e': [
+      Pro: [
         { text: 'Unlimited customers', included: true },
         { text: 'Advanced scheduling', included: true },
         { text: 'Full job tracking', included: true },
@@ -125,7 +125,7 @@ const Pricing = () => {
         { text: 'Advanced analytics', included: true },
         { text: 'Team management', included: true },
       ],
-      'prod_R2TgIYi0HUAYxf': [
+      Enterprise: [
         { text: 'Unlimited customers', included: true },
         { text: 'Advanced scheduling', included: true },
         { text: 'Full job tracking', included: true },
@@ -135,7 +135,7 @@ const Pricing = () => {
         { text: 'Advanced team management', included: true },
       ],
     };
-    return features[productId] || [];
+    return features[tierName] || [];
   };
 
   const handleCheckout = (priceId, tierName, paymentLink) => {
@@ -173,7 +173,9 @@ const Pricing = () => {
           ))}
         </div>
         <div className="mt-16 text-center">
-          <h2 className="text-2xl font-semibold mb-4">Not sure which plan is right for you?</h2>
+          <h2 className="text-2xl font-semibold mb-4">
+            Not sure which plan is right for you?
+          </h2>
           <a
             href="/contact"
             className="bg-primary text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-opacity-90 transition duration-300"
