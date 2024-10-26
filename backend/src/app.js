@@ -64,11 +64,20 @@ mongoose.connection.on('error', (err) => {
   console.error('MongoDB error:', err);
 });
 
+// Initialize Express app
 const app = express();
+
+// Add Stripe-specific middleware for webhook signature verification
+app.use(
+  express.json({
+    verify: function (req, res, buf) {
+      req.rawBody = buf; // Store raw body buffer for Stripe webhook signature verification
+    },
+  })
+);
 
 // Middleware
 app.use(cors());
-app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Session Middleware
@@ -121,9 +130,9 @@ app.use('/api/quotes', quoteRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);
-app.use('/api/webhooks', webhookRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // CSV import route
 app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req, res) => {
