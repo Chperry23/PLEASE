@@ -2,7 +2,7 @@ const Customer = require('../models/customer');
 const Job = require('../models/job');
 const csv = require('csv-parser');
 const multer = require('multer');
-const Profile = require('../models/Profile');
+const Profile = require('../models/profile');
 const upload = multer();
 const fs = require('fs');
 
