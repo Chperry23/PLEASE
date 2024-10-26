@@ -61,9 +61,9 @@ const Pricing = () => {
 
         // Map Payment Links to tiers
         const paymentLinks = {
-          Basic: 'https://buy.stripe.com/00gaGf36G05W84EeUU', // Test Payment Link for Basic plan
-          Pro: 'https://buy.stripe.com/28oaGf9v47yoacMaEF', // Replace with your test mode link for Pro
-          Enterprise: 'https://buy.stripe.com/4gw29J7mWg4U98I002', // Replace with your test mode link for Enterprise
+          Basic: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
+          Pro: 'https://buy.stripe.com/28oaGf9v47yoacMaEF', 
+          Enterprise: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
         };
 
         // Map prices to tiers
@@ -144,13 +144,19 @@ const Pricing = () => {
       navigate('/register', { state: { plan: tierName, priceId, paymentLink } });
       return;
     }
-
-    // Append client_reference_id to the payment link
-    const url = new URL(paymentLink);
-    url.searchParams.append('client_reference_id', user.id);
-
-    // Redirect to the Payment Link with user ID
-    window.location.href = url.toString();
+  
+    console.log('Payment Link:', paymentLink); // Log the payment link to debug
+  
+    try {
+      // Append client_reference_id to the payment link
+      const url = new URL(paymentLink); // Error is likely happening here if paymentLink is invalid
+      url.searchParams.append('client_reference_id', user.id);
+  
+      // Redirect to the Payment Link with user ID
+      window.location.href = url.toString();
+    } catch (error) {
+      console.error('Error constructing URL:', error);
+    }
   };
 
   return (
