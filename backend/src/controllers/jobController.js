@@ -1,6 +1,6 @@
 const Job = require('../models/job');
 const Customer = require('../models/customer');
-const Profile = require('../models/Profile');
+const Profile = require('../models/profile');
 
 // Create a new job
 exports.createJob = async (req, res) => {
