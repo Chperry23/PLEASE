@@ -84,7 +84,21 @@ const Pricing = () => {
 
         // Map prices to tiers using product IDs
         const priceTiers = prices.map((price) => {
-          const productId = price.product; // Assuming price.product is the product ID string
+          console.log('Processing price:', price);
+
+          // Check if price.product is an object or a string
+          let productId;
+          if (typeof price.product === 'object' && price.product !== null) {
+            productId = price.product.id;
+            console.log(`Extracted productId from object: ${productId}`);
+          } else if (typeof price.product === 'string') {
+            productId = price.product;
+            console.log(`Extracted productId from string: ${productId}`);
+          } else {
+            console.warn(`Unexpected type for price.product: ${typeof price.product}`);
+            return null; // Exclude if productId cannot be determined
+          }
+
           const tierInfo = tierMapping[productId];
 
           if (!tierInfo) {
