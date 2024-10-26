@@ -7,19 +7,19 @@ import axiosInstance from '../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-// Define the mapping between product IDs and their respective tier information
+// Define the mapping between price IDs and their respective tier information
 const tierMapping = {
-  'prod_R2TeQ4r5iOH6CG': {
+  'price_1QBkfgE1a6rnB8cNH52neUnu': { // Basic Price ID
     name: 'Basic',
     paymentLink: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
     recommended: false,
   },
-  'prod_R2TfmQYMHxix1e': {
+  'price_1QAOhxE1a6rnB8cN0Ceo9AXM': { // Pro Price ID
     name: 'Pro',
     paymentLink: 'https://buy.stripe.com/28oaGf9v47yoacMaEF',
-    recommended: true, // Mark as recommended if needed
+    recommended: true, // Mark as recommended
   },
-  'prod_R2TgIYi0HUAYxf': {
+  'price_1QAOisE1a6rnB8cNlvqaNaAN': { // Enterprise Price ID
     name: 'Enterprise',
     paymentLink: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
     recommended: false,
@@ -82,27 +82,14 @@ const Pricing = () => {
 
         console.log('Prices fetched:', prices);
 
-        // Map prices to tiers using product IDs
+        // Map prices to tiers using price IDs
         const priceTiers = prices.map((price) => {
           console.log('Processing price:', price);
 
-          // Check if price.product is an object or a string
-          let productId;
-          if (typeof price.product === 'object' && price.product !== null) {
-            productId = price.product.id;
-            console.log(`Extracted productId from object: ${productId}`);
-          } else if (typeof price.product === 'string') {
-            productId = price.product;
-            console.log(`Extracted productId from string: ${productId}`);
-          } else {
-            console.warn(`Unexpected type for price.product: ${typeof price.product}`);
-            return null; // Exclude if productId cannot be determined
-          }
-
-          const tierInfo = tierMapping[productId];
+          const tierInfo = tierMapping[price.id];
 
           if (!tierInfo) {
-            console.warn(`No tier mapping found for product ID: ${productId}`);
+            console.warn(`No tier mapping found for price ID: ${price.id}`);
             return null; // Exclude unmapped tiers
           }
 
