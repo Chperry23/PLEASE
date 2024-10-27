@@ -71,19 +71,19 @@ const Pricing = () => {
         console.log('Fetching prices from backend...'); // Initial fetch log
         const response = await axiosInstance.get('/api/payment/prices');
         console.log('Prices response received:', response); // Log the full response
-
+  
         const prices = response.data;
         console.log('Prices fetched:', prices); // Log the actual data received from backend
-
+  
         const priceTiers = prices.map((price) => {
           const tierInfo = tierMapping[price.id];
           if (!tierInfo) {
             console.warn(`No tier mapping found for price ID: ${price.id}`);
             return null;
           }
-
+  
           console.log(`Mapping price ID ${price.id} to tier: ${tierInfo.name}`);
-
+  
           return {
             name: tierInfo.name,
             priceAmount: (price.unit_amount / 100).toFixed(2),
@@ -94,17 +94,18 @@ const Pricing = () => {
             paymentLink: tierInfo.paymentLink,
           };
         }).filter(tier => tier !== null); // Remove null entries
-
+  
         console.log('Mapped Price Tiers:', priceTiers);
-
+  
         setTiers(priceTiers);
       } catch (error) {
         console.error('Error fetching prices:', error); // Add full error logging
       }
     };
-
+  
     fetchPrices();
   }, []);
+  
 
   const getFeaturesForTier = (tierName) => {
     // Define features for each tier
