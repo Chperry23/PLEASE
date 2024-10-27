@@ -7,10 +7,14 @@ const stripe = require('../utils/stripe'); // Ensure Stripe is initialized corre
 // GET /api/payment/prices - Fetch Stripe Prices
 router.get('/prices', async (req, res) => {
   try {
+    console.log("Received request to /api/payment/prices at", new Date().toISOString());
+    
     const prices = await stripe.prices.list({
       active: true,
       expand: ['data.product'],
     });
+
+    console.log("Successfully fetched prices from Stripe at", new Date().toISOString(), "Prices:", prices);
 
     res.json(prices.data);
   } catch (error) {

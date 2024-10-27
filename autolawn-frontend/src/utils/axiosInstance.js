@@ -4,6 +4,7 @@ const axiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'https://autolawn.app/api', // Ensure HTTPS by default
 });
 
+
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -20,9 +21,18 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('Axios error:', error.response ? error.response.data : error.message); // Debugging log
+    if (error.response) {
+      console.error('Axios error response data:', error.response.data);
+      console.error('Axios error status:', error.response.status);
+      console.error('Axios error headers:', error.response.headers);
+    } else if (error.request) {
+      console.error('No response received:', error.request);
+    } else {
+      console.error('Error during request setup:', error.message);
+    }
     return Promise.reject(error);
   }
 );
+
 
 export default axiosInstance;
