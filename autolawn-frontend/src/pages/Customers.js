@@ -145,7 +145,7 @@ const Customers = () => {
     setLoading(true);
 
     try {
-      await axiosInstance.post('http://localhost:5000/api/customers', customer, {
+      await axiosInstance.post('https://autolawn.app/api/customers', customer, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setSuccess('Customer added successfully!');
@@ -176,7 +176,7 @@ const Customers = () => {
 
     setLoading(true);
     try {
-      await axiosInstance.post('http://localhost:5000/api/customers/import', formData, {
+      await axiosInstance.post('https://autolawn.app/api/customers/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${localStorage.getItem('token')}`

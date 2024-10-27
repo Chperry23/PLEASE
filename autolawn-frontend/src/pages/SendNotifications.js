@@ -18,7 +18,7 @@ const SendNotifications = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axiosInstance.get('http://localhost:5000/api/customers', {
+      const response = await axiosInstance.get('http://autolawn.app/api/customers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setCustomers(response.data);
@@ -49,7 +49,7 @@ const SendNotifications = () => {
   const handleSendNotification = async () => {
     try {
       const response = await axiosInstance.post(
-        'http://localhost:5000/api/notifications/send', // Ensure this matches your server route
+        'http://autolawn.app/api/notifications/send', // Ensure this matches your server route
         {
           customerIds: selectedCustomers,
           message,

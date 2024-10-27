@@ -37,7 +37,7 @@ const Jobs = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axiosInstance.get('http://localhost:5000/api/customers', {
+      const response = await axiosInstance.get('https://autolawn.app/api/customers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const sanitizedCustomers = response.data.map(customer => ({
@@ -57,7 +57,7 @@ const Jobs = () => {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-        const response = await axiosInstance.get('http://localhost:5000/api/jobs', {
+        const response = await axiosInstance.get('https://autolawn.app/api/jobs', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
 
@@ -149,7 +149,7 @@ const handleSubmit = async (e) => {
     
     console.log('Sending job data:', jobData);  // Log the job data before sending
 
-    const response = await axiosInstance.post('http://localhost:5000/api/jobs', jobData);
+    const response = await axiosInstance.post('https://autolawn.app/api/jobs', jobData);
     console.log('Job created:', response.data);  // Log the response data
     setSuccess('Job created successfully!');
     setJob({

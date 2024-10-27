@@ -78,7 +78,7 @@ const QuoteTool = () => {
 
   const fetchSavedQuotes = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/quotes', {
+      const response = await axios.get('https://autolawn.app/api/quotes', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setSavedQuotes(response.data);
@@ -90,7 +90,7 @@ const QuoteTool = () => {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/customers', {
+      const response = await axios.get('https://autolawn.app/api/customers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCustomers(response.data);
@@ -102,7 +102,7 @@ const QuoteTool = () => {
 
   const fetchBusinessInfo = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/business-info', {
+      const response = await axios.get('https://autolawn.app/api/business-info', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBusinessInfo(response.data);
@@ -144,7 +144,7 @@ const QuoteTool = () => {
     }
   
     try {
-      const response = await axios.post('http://localhost:5000/api/quotes/calculate', {
+      const response = await axios.post('https://autolawn.app/api/quotes/calculate', {
         type,
         area: parseFloat(area),
         options: options[type],
@@ -181,7 +181,7 @@ const QuoteTool = () => {
         quoteIdentifier
       };
       
-      const existingQuotes = await axios.get(`http://localhost:5000/api/quotes?identifier=${quoteIdentifier}`, {
+      const existingQuotes = await axios.get(`https://autolawn.app/api/quotes?identifier=${quoteIdentifier}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
@@ -190,7 +190,7 @@ const QuoteTool = () => {
         return;
       }
       
-      const response = await axios.post('http://localhost:5000/api/quotes', quoteData, {
+      const response = await axios.post('https://autolawn.app/api/quotes', quoteData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
@@ -206,7 +206,7 @@ const QuoteTool = () => {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const response = await axios.patch(`http://localhost:5000/api/quotes/${id}/status`, { quoteStatus: newStatus }, {
+      const response = await axios.patch(`https://autolawn.app/api/quotes/${id}/status`, { quoteStatus: newStatus }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       console.log('Status update response:', response.data);
@@ -225,7 +225,7 @@ const QuoteTool = () => {
   const handleDeleteQuote = async (id) => {
     if (window.confirm('Are you sure you want to delete this quote?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/quotes/${id}`, {
+        await axios.delete(`https://autolawn.app/api/quotes/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setSavedQuotes(prevQuotes => prevQuotes.filter(quote => quote._id !== id));
@@ -239,7 +239,7 @@ const QuoteTool = () => {
 
   const handleConvertToJob = async (id) => {
     try {
-      await axios.post('http://localhost:5000/api/quotes/convert-to-job', { quoteId: id }, {
+      await axios.post('https://autolawn.app/api/quotes/convert-to-job', { quoteId: id }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchSavedQuotes();

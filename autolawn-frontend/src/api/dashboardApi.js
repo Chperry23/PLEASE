@@ -3,7 +3,7 @@
 import axios from 'axios';
 
 // Base URL for API requests
-const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_BASE_URL || 'https://autolawn.app/api';
 
 // Function to retrieve headers with the Authorization token
 const getHeaders = () => {
