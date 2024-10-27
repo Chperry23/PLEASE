@@ -1,5 +1,3 @@
-// frontend/src/pages/Pricing.js
-
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
@@ -28,11 +26,7 @@ const tierMapping = {
 
 // Component to display each pricing tier
 const PricingTier = ({ tier, handleCheckout }) => (
-  <div
-    className={`bg-surface p-6 rounded-lg shadow-md ${
-      tier.recommended ? 'border-2 border-primary' : ''
-    }`}
-  >
+  <div className={`bg-surface p-6 rounded-lg shadow-md ${tier.recommended ? 'border-2 border-primary' : ''}`}>
     {tier.recommended && (
       <span className="bg-primary text-white px-2 py-1 rounded-full text-sm font-semibold mb-2 inline-block">
         Recommended
@@ -58,9 +52,7 @@ const PricingTier = ({ tier, handleCheckout }) => (
       ))}
     </ul>
     <button
-      className={`mt-6 w-full py-2 px-4 rounded ${
-        tier.recommended ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'
-      } font-semibold`}
+      className={`mt-6 w-full py-2 px-4 rounded ${tier.recommended ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'} font-semibold`}
       onClick={() => handleCheckout(tier.priceId, tier.name, tier.paymentLink)}
     >
       Choose Plan
@@ -76,21 +68,22 @@ const Pricing = () => {
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        console.log('Fetching prices from backend...');
+        console.log('Fetching prices from backend...'); // Initial fetch log
         const response = await axiosInstance.get('/api/payment/prices');
+        console.log('Prices response received:', response); // Log the full response
+
         const prices = response.data;
-  
-        console.log('Prices fetched from backend:', prices);
-  
+        console.log('Prices fetched:', prices); // Log the actual data received from backend
+
         const priceTiers = prices.map((price) => {
           const tierInfo = tierMapping[price.id];
           if (!tierInfo) {
             console.warn(`No tier mapping found for price ID: ${price.id}`);
             return null;
           }
-  
+
           console.log(`Mapping price ID ${price.id} to tier: ${tierInfo.name}`);
-  
+
           return {
             name: tierInfo.name,
             priceAmount: (price.unit_amount / 100).toFixed(2),
@@ -101,15 +94,15 @@ const Pricing = () => {
             paymentLink: tierInfo.paymentLink,
           };
         }).filter(tier => tier !== null); // Remove null entries
-  
+
         console.log('Mapped Price Tiers:', priceTiers);
-  
+
         setTiers(priceTiers);
       } catch (error) {
-        console.error('Error fetching prices:', error);
+        console.error('Error fetching prices:', error); // Add full error logging
       }
     };
-  
+
     fetchPrices();
   }, []);
 
