@@ -1,7 +1,7 @@
+require('dotenv').config(); // Load environment variables at the top
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const dotenv = require('dotenv').config();
 const passport = require('passport');
 const multer = require('multer');
 const csv = require('csv-parser');
@@ -10,8 +10,7 @@ const path = require('path');
 const session = require('express-session');
 const userRoutes = require('./routes/userRoutes');
 
-// Load environment variables
-dotenv.config();
+// Remove this: dotenv.config();  <---- You no longer need this line
 
 // Import routes
 const authRoutes = require('./routes/auth');
