@@ -28,7 +28,7 @@ const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
-const connectDB = require('./utils/connectDB'); // Import connectDB from the utility file
+const connectDB = require('./config/database'); // Import connectDB from the utility file
 
 // Import passport configuration
 require('./config/passport');
