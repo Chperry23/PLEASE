@@ -79,23 +79,18 @@ const Pricing = () => {
         console.log('Fetching prices from backend...');
         const response = await axiosInstance.get('/api/payment/prices');
         const prices = response.data;
-
-        console.log('Prices fetched:', prices);
-
-        // Map prices to tiers using price IDs
+  
+        console.log('Prices fetched from backend:', prices);
+  
         const priceTiers = prices.map((price) => {
-          console.log('Processing price:', price);
-
           const tierInfo = tierMapping[price.id];
-
           if (!tierInfo) {
             console.warn(`No tier mapping found for price ID: ${price.id}`);
-            return null; // Exclude unmapped tiers
+            return null;
           }
-
+  
           console.log(`Mapping price ID ${price.id} to tier: ${tierInfo.name}`);
-          console.log(`Payment Link for ${tierInfo.name}: ${tierInfo.paymentLink}`);
-
+  
           return {
             name: tierInfo.name,
             priceAmount: (price.unit_amount / 100).toFixed(2),
@@ -106,26 +101,15 @@ const Pricing = () => {
             paymentLink: tierInfo.paymentLink,
           };
         }).filter(tier => tier !== null); // Remove null entries
-
+  
         console.log('Mapped Price Tiers:', priceTiers);
-
-        // Arrange tiers in the desired order
-        const orderedTiers = priceTiers.sort((a, b) => {
-          const order = ['Basic', 'Pro', 'Enterprise'];
-          return order.indexOf(a.name) - order.indexOf(b.name);
-        });
-
-        console.log('Ordered Tiers:', orderedTiers);
-
-        setTiers(orderedTiers);
+  
+        setTiers(priceTiers);
       } catch (error) {
         console.error('Error fetching prices:', error);
-        alert(
-          'An error occurred while fetching pricing information. Please try again later.'
-        );
       }
     };
-
+  
     fetchPrices();
   }, []);
 
