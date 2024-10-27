@@ -1,12 +1,11 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of 30s
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
     });
     console.log('MongoDB connected successfully');
   } catch (err) {
@@ -20,5 +19,14 @@ const connectDB = async () => {
     process.exit(1);
   }
 };
+
+// Event listeners for better logging
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB error:', err);
+});
 
 module.exports = connectDB;

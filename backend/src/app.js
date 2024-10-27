@@ -28,44 +28,16 @@ const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const connectDB = require('./utils/connectDB'); // Import connectDB from the utility file
 
 // Import passport configuration
 require('./config/passport');
 
-// MongoDB Connection Logic
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
-      useCreateIndex: true, // Deprecated in Mongoose 6
-      useFindAndModify: false, // Deprecated in Mongoose 6
-    });
-    console.log('MongoDB connected successfully');
-  } catch (error) {
-    console.error('MongoDB connection error:', error.message);
-    if (error.name === 'MongooseServerSelectionError') {
-      console.error('Could not connect to any MongoDB servers.');
-      console.error('Error details:', error);
-      console.error('Connection string used:', process.env.MONGODB_URI);
-    }
-    process.exit(1);
-  }
-};
-
-connectDB();
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB error:', err);
-});
-
 // Initialize Express app
 const app = express();
+
+// Connect to MongoDB
+connectDB();
 
 // Add Stripe-specific middleware for webhook signature verification
 app.use(
