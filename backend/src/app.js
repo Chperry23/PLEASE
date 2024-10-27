@@ -1,4 +1,7 @@
-require('dotenv').config(); // Load environment variables at the top
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config(); // Load environment variables in development
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -9,8 +12,6 @@ const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const userRoutes = require('./routes/userRoutes');
-
-// Remove this: dotenv.config();  <---- You no longer need this line
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -155,7 +156,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Google OAuth Callback URL: http://localhost:${PORT}/api/auth/google/callback`);
+  console.log(`Google OAuth Callback URL: https://autolawn.app/api/auth/google/callback`);
 });
 
 // Graceful Shutdown

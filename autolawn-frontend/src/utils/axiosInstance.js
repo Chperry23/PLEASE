@@ -1,10 +1,12 @@
+// src/utils/axiosInstance.js
 import axios from 'axios';
 
 const axiosInstance = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'https://autolawn.app/api', // Ensure HTTPS by default
+  withCredentials: true, // Include cookies if needed
 });
 
-
+// Request Interceptor to Add Authorization Header
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -18,6 +20,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response Interceptor for Error Handling
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -33,6 +36,5 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 
 export default axiosInstance;

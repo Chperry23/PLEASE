@@ -1,13 +1,8 @@
-// src/utils/stripe.js
-import { loadStripe } from '@stripe/stripe-js';
+// utils/stripe.js
+const Stripe = require('stripe');
 
-let stripePromise;
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2022-11-15', // Use the latest stable Stripe API version
+});
 
-const getStripe = () => {
-  if (!stripePromise) {
-    stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
-  }
-  return stripePromise;
-};
-
-export default getStripe;
+module.exports = stripe;

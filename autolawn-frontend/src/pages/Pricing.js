@@ -1,28 +1,10 @@
+// src/pages/Pricing.jsx
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import axiosInstance from '../utils/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-// Define the mapping between price IDs and their respective tier information
-const tierMapping = {
-  'price_1QBkfgE1a6rnB8cNH52neUnu': { // Basic Price ID
-    name: 'Basic',
-    paymentLink: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
-    recommended: false,
-  },
-  'price_1QAOhxE1a6rnB8cN0Ceo9AXM': { // Pro Price ID
-    name: 'Pro',
-    paymentLink: 'https://buy.stripe.com/28oaGf9v47yoacMaEF',
-    recommended: true, // Mark as recommended
-  },
-  'price_1QAOisE1a6rnB8cNlvqaNaAN': { // Enterprise Price ID
-    name: 'Enterprise',
-    paymentLink: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
-    recommended: false,
-  },
-};
 
 // Component to display each pricing tier
 const PricingTier = ({ tier, handleCheckout }) => (
@@ -34,8 +16,7 @@ const PricingTier = ({ tier, handleCheckout }) => (
     )}
     <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
     <p className="text-3xl font-bold mb-4">
-      ${tier.priceAmount}
-      <span className="text-sm font-normal">/{tier.priceInterval}</span>
+      ${tier.amount} / {tier.interval}
     </p>
     <ul className="space-y-2">
       {tier.features.map((feature, index) => (
@@ -53,7 +34,7 @@ const PricingTier = ({ tier, handleCheckout }) => (
     </ul>
     <button
       className={`mt-6 w-full py-2 px-4 rounded ${tier.recommended ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'} font-semibold`}
-      onClick={() => handleCheckout(tier.priceId, tier.name, tier.paymentLink)}
+      onClick={() => handleCheckout(tier.priceId, tier.name)}
     >
       Choose Plan
     </button>
@@ -68,21 +49,28 @@ const Pricing = () => {
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        console.log('Fetching prices from backend...'); // Initial fetch log
+        console.log('Fetching prices from backend...');
         const response = await axiosInstance.get('/api/payment/prices');
-        console.log('Prices response received:', response); // Log the full response
-  
+        console.log('Prices response received:', response);
+
         const prices = response.data;
-        console.log('Prices fetched:', prices); // Log the actual data received from backend
+
+        // Map the prices to include features based on tier name
+        const mappedTiers = prices.map((price) => ({
+          ...price,
+          features: getFeaturesForTier(price.name),
+          recommended: price.name === 'Pro', // Adjust based on your preference
+        }));
+
+        setTiers(mappedTiers);
+        console.log('Tiers set:', mappedTiers);
       } catch (error) {
         console.error('Error fetching prices:', error);
       }
     };
-  
+
     fetchPrices();
   }, []);
-  
-  
 
   const getFeaturesForTier = (tierName) => {
     // Define features for each tier
@@ -118,13 +106,12 @@ const Pricing = () => {
     return features[tierName] || [];
   };
 
-  const handleCheckout = (priceId, tierName, paymentLink) => {
+  const handleCheckout = async (priceId, tierName) => {
     console.log(`Initiating checkout for tier: ${tierName}`);
     console.log('Price ID:', priceId);
-    console.log('Payment Link:', paymentLink);
 
-    if (!paymentLink) {
-      console.error(`No payment link found for tier: ${tierName}`);
+    if (!priceId) {
+      console.error(`No price ID found for tier: ${tierName}`);
       alert('Selected tier is not available. Please contact support.');
       return;
     }
@@ -132,21 +119,24 @@ const Pricing = () => {
     if (!user) {
       console.log('User not logged in. Redirecting to registration...');
       // User is not logged in, redirect to registration with selected plan
-      navigate('/register', { state: { plan: tierName, priceId, paymentLink } });
+      navigate('/register', { state: { plan: tierName, priceId } });
       return;
     }
 
     try {
-      // Append client_reference_id to the payment link
-      const url = new URL(paymentLink);
-      url.searchParams.append('client_reference_id', user.id);
+      // Create Checkout Session on the backend
+      const response = await axiosInstance.post('/create-checkout-session', { priceId });
 
-      console.log('Redirecting to payment URL:', url.toString());
+      const { url } = response.data;
 
-      // Redirect to the Payment Link with user ID
-      window.location.href = url.toString();
+      if (url) {
+        console.log('Redirecting to Stripe Checkout URL:', url);
+        window.location.href = url;
+      } else {
+        alert('Failed to redirect to checkout.');
+      }
     } catch (error) {
-      console.error('Error constructing URL:', error);
+      console.error('Error creating Checkout session:', error);
       alert('There was an issue processing your payment. Please try again.');
     }
   };

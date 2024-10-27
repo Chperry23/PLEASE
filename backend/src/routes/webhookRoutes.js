@@ -2,30 +2,31 @@
 
 const express = require('express');
 const router = express.Router();
-const stripe = require('../utils/stripe');
-const User = require('../models/user');
+const stripe = require('../utils/stripe'); // Ensure Stripe is initialized correctly
+const User = require('../models/user'); // Replace with your actual User model
 const bodyParser = require('body-parser');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-// Use bodyParser to parse the raw body needed for Stripe webhooks
+// Middleware to parse the raw body required for Stripe webhooks
+// It's crucial to use bodyParser.raw() here to obtain the exact payload sent by Stripe
 router.post(
-  '/webhook',
+  '/',
   bodyParser.raw({ type: 'application/json' }),
   async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
 
     try {
-      // Construct the event using the raw body and signature
+      // Construct the event using the raw body and Stripe signature
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-      console.log('Received Stripe event:', event.type);
+      console.log(`Received Stripe event: ${event.type}`);
     } catch (err) {
-      console.error('Webhook signature verification failed:', err.message);
+      console.error(`⚠️  Webhook signature verification failed.`, err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // Process the event type
+    // Handle the event
     switch (event.type) {
       case 'checkout.session.completed':
         await handleCheckoutSession(event.data.object);
@@ -41,13 +42,19 @@ router.post(
         console.log(`Unhandled event type ${event.type}`);
     }
 
+    // Return a response to acknowledge receipt of the event
     res.status(200).send('Received');
   }
 );
 
+/**
+ * Handles the 'checkout.session.completed' event.
+ * Updates the user's subscription details in the database.
+ * @param {object} session - The Stripe Checkout Session object.
+ */
 const handleCheckoutSession = async (session) => {
   try {
-    console.log('Processing checkout session:', session);
+    console.log('Processing checkout session:', session.id);
 
     const userId = session.client_reference_id;
 
@@ -59,6 +66,7 @@ const handleCheckoutSession = async (session) => {
     const user = await User.findById(userId);
 
     if (user) {
+      // Update user with Stripe customer and subscription IDs
       user.stripeCustomerId = session.customer;
       user.stripeSubscriptionId = session.subscription;
       user.subscriptionActive = true;
@@ -79,21 +87,28 @@ const handleCheckoutSession = async (session) => {
       await user.save();
 
       console.log(
-        `Subscription activated for user: ${user.email}, Tier: ${user.subscriptionTier}`
+        `✅ Subscription activated for user: ${user.email}, Tier: ${user.subscriptionTier}`
       );
     } else {
-      console.error(`User with ID ${userId} not found.`);
+      console.error(`❌ User with ID ${userId} not found.`);
     }
   } catch (error) {
     console.error('Error handling checkout.session.completed:', error);
-    // Do not throw error here; Stripe expects a response
+    // Important: Do not throw the error. Stripe expects a response.
   }
 };
 
+/**
+ * Handles 'customer.subscription.created' and 'customer.subscription.updated' events.
+ * Updates the user's subscription status and tier in the database.
+ * @param {object} subscription - The Stripe Subscription object.
+ */
 const handleSubscriptionEvent = async (subscription) => {
   try {
     console.log('Processing subscription event:', subscription.id);
-    const user = await User.findOne({ stripeCustomerId: subscription.customer });
+    const customerId = subscription.customer;
+
+    const user = await User.findOne({ stripeCustomerId: customerId });
 
     if (user) {
       user.subscriptionActive = subscription.status === 'active';
@@ -112,36 +127,43 @@ const handleSubscriptionEvent = async (subscription) => {
       await user.save();
 
       console.log(
-        `Subscription updated for user: ${user.email} - Active: ${user.subscriptionActive}, Tier: ${user.subscriptionTier}`
+        `🔄 Subscription updated for user: ${user.email} - Active: ${user.subscriptionActive}, Tier: ${user.subscriptionTier}`
       );
     } else {
-      console.error(`User with Stripe Customer ID ${subscription.customer} not found.`);
+      console.error(`❌ User with Stripe Customer ID ${customerId} not found.`);
     }
   } catch (error) {
     console.error('Error handling subscription event:', error);
-    // Do not throw error here; Stripe expects a response
+    // Important: Do not throw the error. Stripe expects a response.
   }
 };
 
+/**
+ * Handles the 'customer.subscription.deleted' event.
+ * Updates the user's subscription status in the database.
+ * @param {object} subscription - The Stripe Subscription object.
+ */
 const handleSubscriptionDeleted = async (subscription) => {
   try {
     console.log('Processing subscription deletion:', subscription.id);
-    const user = await User.findOne({ stripeSubscriptionId: subscription.id });
+    const subscriptionId = subscription.id;
+
+    const user = await User.findOne({ stripeSubscriptionId: subscriptionId });
 
     if (user) {
       user.subscriptionActive = false;
-      user.subscriptionTier = null; // Adjust as needed
+      user.subscriptionTier = null; // Optionally, reset the tier or assign a default
       user.stripeSubscriptionId = null;
 
       await user.save();
 
-      console.log(`Subscription deleted for user: ${user.email}`);
+      console.log(`🛑 Subscription deleted for user: ${user.email}`);
     } else {
-      console.error(`User with Stripe Subscription ID ${subscription.id} not found.`);
+      console.error(`❌ User with Stripe Subscription ID ${subscriptionId} not found.`);
     }
   } catch (error) {
     console.error('Error handling subscription deleted event:', error);
-    // Do not throw error here; Stripe expects a response
+    // Important: Do not throw the error. Stripe expects a response.
   }
 };
 
