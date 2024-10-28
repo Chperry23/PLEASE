@@ -1,4 +1,7 @@
-require('dotenv').config(); // Load environment variables at the top
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,9 +11,8 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const userRoutes = require('./routes/userRoutes');
-
-// Remove this: dotenv.config();  <---- You no longer need this line
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -27,7 +29,6 @@ const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
-const connectDB = require('./config/database'); // Import connectDB from the utility file
 
 // Import passport configuration
 require('./config/passport');
@@ -36,7 +37,15 @@ require('./config/passport');
 const app = express();
 
 // Connect to MongoDB
-connectDB();
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('MongoDB connected successfully');
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+  process.exit(1);
+});
 
 // Add Stripe-specific middleware for webhook signature verification
 app.use(
@@ -48,7 +57,12 @@ app.use(
 );
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'https://autolawn.app',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.urlencoded({ extended: false }));
 
 // Session Middleware
@@ -57,13 +71,28 @@ app.use(
     secret: process.env.SESSION_SECRET || 'A7f5J9kL3uP2Z1tV',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === 'production' },
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      ttl: 24 * 60 * 60 // 1 day
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    },
+    proxy: true
   })
 );
 
 // Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Middleware for retrying transactions
 app.use((req, res, next) => {
@@ -118,15 +147,12 @@ app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req
     .on('data', (data) => results.push(data))
     .on('end', async () => {
       try {
-        // Process the results and save to database
         console.log('Parsed CSV data:', results);
-
         res.json({ message: 'Customers imported successfully', count: results.length });
       } catch (error) {
         console.error('Error saving customers:', error);
         res.status(500).json({ message: 'Error importing customers' });
       } finally {
-        // Delete the uploaded file
         fs.unlinkSync(req.file.path);
       }
     });
@@ -134,12 +160,22 @@ app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'OK' });
+  res.status(200).json({ 
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
 });
 
 // 404 Route
-app.use((req, res, next) => {
-  res.status(404).send('Not Found');
+app.use((req, res) => {
+  console.log('404 Not Found:', req.path);
+  res.status(404).json({ 
+    error: 'Not Found',
+    path: req.path,
+    method: req.method
+  });
 });
 
 // Error Handling Middleware
@@ -148,20 +184,50 @@ app.use((err, req, res, next) => {
   if (err.name === 'MongoError' && err.code === 112) {
     return res.status(409).json({ message: 'Conflict detected. Please try again.' });
   }
-  res.status(err.status || 500).json({ message: err.message || 'Internal server error' });
+  res.status(err.status || 500).json({ 
+    message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+  });
 });
 
 // Start the Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Google OAuth Callback URL: http://localhost:${PORT}/api/auth/google/callback`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`MongoDB URI: ${process.env.MONGODB_URI ? '[SET]' : '[NOT SET]'}`);
+  console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`Google OAuth Callback URL: https://autolawn.app/api/auth/google/callback`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  }
 });
 
 // Graceful Shutdown
 process.on('SIGINT', () => {
-  mongoose.connection.close(() => {
-    console.log('MongoDB connection closed due to app termination');
-    process.exit(0);
+  console.log('Received SIGINT. Starting graceful shutdown...');
+  server.close(() => {
+    console.log('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
   });
 });
+
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM. Starting graceful shutdown...');
+  server.close(() => {
+    console.log('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
+});
+
+module.exports = app;
