@@ -8,28 +8,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Verify token
-  const verifyToken = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      const response = await axios.get('/auth/verify');
-      setUser(response.data.user);
-    } catch (error) {
-      console.error('Token verification failed:', error);
-      localStorage.removeItem('token');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
-  useEffect(() => {
-    verifyToken();
-  }, [verifyToken]);
-
+// In your register function
 const register = async (userData) => {
   try {
     console.log('Sending registration request:', userData);
@@ -49,7 +29,7 @@ const register = async (userData) => {
   // Regular login
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/auth/login', { email, password });
+      const response = await axios.post('/api/auth/login', { email, password });
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       setUser(user);
@@ -62,26 +42,13 @@ const register = async (userData) => {
 
   // Google OAuth login
   const loginWithGoogle = () => {
-    window.location.href = 'https://autolawn.app/api/auth/google';
-  };
-  // Handle OAuth success
-  const handleOAuthSuccess = async (token) => {
-    try {
-      if (!token) {
-        throw new Error('No token provided');
-      }
-      localStorage.setItem('token', token);
-      await verifyToken();
-    } catch (error) {
-      console.error('OAuth success handling error:', error);
-      throw error;
-    }
+    window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
   };
 
   // Update user profile
   const updateUserProfile = async (profileData) => {
     try {
-      const response = await axios.put('/profile', profileData);
+      const response = await axios.put('/api/profile', profileData);
       setUser(response.data);
       return response.data;
     } catch (error) {
@@ -93,7 +60,7 @@ const register = async (userData) => {
   // Refresh user data
   const refreshUser = async () => {
     try {
-      const response = await axios.get('/user');
+      const response = await axios.get('/api/user');
       setUser(response.data);
       return response.data;
     } catch (error) {
@@ -102,41 +69,35 @@ const register = async (userData) => {
     }
   };
 
+  // Verify token on mount
+  const verifyToken = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      const response = await axios.get('/api/auth/verify');
+      setUser(response.data.user);
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      localStorage.removeItem('token');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    verifyToken();
+  }, [verifyToken]);
+
   // Logout
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    sessionStorage.removeItem('selectedPlan');
   };
 
-  // Subscription related functions
-  const checkSubscription = async () => {
-    try {
-      const response = await axios.get('/subscription/status');
-      const { subscriptionActive, subscriptionTier } = response.data;
-      setUser(prev => ({ ...prev, subscriptionActive, subscriptionTier }));
-      return response.data;
-    } catch (error) {
-      console.error('Subscription check error:', error);
-      throw error;
-    }
-  };
-
-  const value = {
-    user,
-    loading,
-    error,
-    register,
-    login,
-    loginWithGoogle,
-    handleOAuthSuccess,
-    updateUserProfile,
-    refreshUser,
-    logout,
-    checkSubscription
-  };
-
-return (
+  return (
     <AuthContext.Provider
       value={{
         user,
@@ -145,11 +106,9 @@ return (
         register,
         login,
         loginWithGoogle,
-        handleOAuthSuccess,
         updateUserProfile,
         refreshUser,
         logout,
-        checkSubscription
       }}
     >
       {children}
@@ -164,3 +123,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthProvider;

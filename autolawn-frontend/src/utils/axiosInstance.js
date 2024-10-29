@@ -1,13 +1,5 @@
 import axios from 'axios';
 
-// Create a function to clean up the URL
-const cleanUrl = (url) => {
-  // Remove leading/trailing slashes
-  const cleaned = url.replace(/^\/+|\/+$/g, '');
-  // If the path doesn't start with 'api/', add it
-  return cleaned.startsWith('api/') ? cleaned : `api/${cleaned}`;
-};
-
 const axiosInstance = axios.create({
   baseURL: 'https://autolawn.app',
   timeout: 120000,
@@ -16,60 +8,53 @@ const axiosInstance = axios.create({
   }
 });
 
-// Request interceptor with detailed logging
+// Request interceptor
 axiosInstance.interceptors.request.use((config) => {
-  // Log incoming request
-  console.log('Request Before Processing:', {
+  console.log('Original Request:', {
     method: config.method,
-    originalUrl: config.url,
-    baseURL: config.baseURL
+    url: config.url,
+    data: config.data
   });
 
-  // Clean up the URL
-  const cleanedUrl = cleanUrl(config.url);
-  config.url = `/${cleanedUrl}`;
+  // Ensure API paths are correct
+  if (!config.url.startsWith('/')) {
+    config.url = `/${config.url}`;
+  }
 
-  // Log final request details
-  console.log('Final Request Configuration:', {
+  // Add api prefix if not present
+  if (!config.url.startsWith('/api/')) {
+    config.url = `/api${config.url}`;
+  }
+
+  console.log('Modified Request:', {
     method: config.method,
     url: config.url,
     fullUrl: `${config.baseURL}${config.url}`
   });
 
-  // Add auth token if available
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
   return config;
 }, (error) => {
-  console.error('Request Interceptor Error:', error);
+  console.error('Request error:', error);
   return Promise.reject(error);
 });
 
-// Response interceptor with error handling
+// Response interceptor
 axiosInstance.interceptors.response.use(
   (response) => {
-    console.log('Response Success:', {
+    console.log('Response:', {
       url: response.config.url,
-      status: response.status
+      status: response.status,
+      data: response.data
     });
     return response;
   },
   (error) => {
-    console.error('Response Error:', {
+    console.error('Response error:', {
       url: error.config?.url,
-      baseURL: error.config?.baseURL,
       status: error.response?.status,
-      data: error.response?.data
+      data: error.response?.data,
+      message: error.message
     });
-
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/signin';
-    }
-
     return Promise.reject(error);
   }
 );

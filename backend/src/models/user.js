@@ -1,6 +1,5 @@
-// backend/src/models/user.js
-
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
@@ -20,7 +19,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: function () {
+      required: function() {
         return !this.googleId;
       },
       select: false,
@@ -32,8 +31,8 @@ const userSchema = new mongoose.Schema(
     jobTypes: String,
     subscriptionTier: {
       type: String,
-      enum: ['Basic', 'Pro', 'Enterprise',null],
-      default: 'Basic', // Set default to 'Basic' if that's the starting plan
+      enum: ['Basic', 'Pro', 'Enterprise', null],
+      default: null,
     },
     subscriptionActive: {
       type: Boolean,
@@ -80,6 +79,26 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Password hashing middleware
+userSchema.pre('save', async function(next) {
+  try {
+    if (this.isModified('password')) {
+      this.password = await bcrypt.hash(this.password, 10);
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Password comparison method
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw error;
+  }
+};
 
 // Create index on email
 userSchema.index({ email: 1 }, { unique: true });

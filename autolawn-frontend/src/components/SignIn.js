@@ -11,7 +11,6 @@ const SignIn = () => {
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
-  // Regular email/password login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -19,8 +18,6 @@ const SignIn = () => {
 
     try {
       const response = await login(email, password);
-      
-      // Handle different user states
       if (!response.user.subscriptionTier) {
         navigate('/pricing');
       } else if (!response.user.customerBaseSize) {
@@ -39,9 +36,7 @@ const SignIn = () => {
     }
   };
 
-  // Google Sign In
   const handleGoogleSignIn = () => {
-    // Redirect to Google OAuth
     window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
   };
 
@@ -49,7 +44,7 @@ const SignIn = () => {
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-text">
             Sign in to your account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
