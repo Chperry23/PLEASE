@@ -1,44 +1,47 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Alert from './Alert';
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [alert, setAlert] = useState(null);
-  const { login, loginWithGoogle, user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
+  // Regular email/password login
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setAlert(null);
 
-    if (!email || !password) {
-      setAlert({ type: 'error', message: 'Please enter both email and password.' });
-      return;
-    }
-
     try {
-      await login(email, password);
+      const response = await login(email, password);
       
-      if (user?.subscriptionActive) {
-        const from = location.state?.from?.pathname || "/dashboard";
-        navigate(from, { replace: true });
-      } else {
+      // Handle different user states
+      if (!response.user.subscriptionTier) {
         navigate('/pricing');
+      } else if (!response.user.customerBaseSize) {
+        navigate('/complete-profile');
+      } else {
+        navigate('/dashboard');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setAlert({ 
-        type: 'error', 
-        message: 'Failed to sign in. Please check your credentials.' 
+      setAlert({
+        type: 'error',
+        message: 'Failed to sign in. Please check your credentials.'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Google Sign In
   const handleGoogleSignIn = () => {
+    // Redirect to Google OAuth
     window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
   };
 
@@ -46,14 +49,7 @@ const SignIn = () => {
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <Link to="/">
-            <img
-              className="mx-auto h-12 w-auto"
-              src="/logo.svg"
-              alt="AutoLawn"
-            />
-          </Link>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-text">
+          <h2 className="mt-6 text-center text-3xl font-extrabold">
             Sign in to your account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
@@ -105,9 +101,10 @@ const SignIn = () => {
           <div>
             <button
               type="submit"
+              disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
             >
-              Sign in
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>
@@ -127,12 +124,12 @@ const SignIn = () => {
           <div className="mt-6">
             <button
               onClick={handleGoogleSignIn}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+              className="w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               <img
                 className="h-5 w-5 mr-2"
                 src="/google-icon.svg"
-                alt="Google"
+                alt=""
               />
               Sign in with Google
             </button>

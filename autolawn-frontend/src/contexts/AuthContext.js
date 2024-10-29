@@ -1,95 +1,144 @@
-// frontend/src/contexts/AuthContext.js
-
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import axiosInstance from '../utils/axiosInstance';
-// AuthContext.js
-
-const API_URL = process.env.REACT_APP_API_URL || 'https://autolawn.app/api';
+import axios from '../utils/axiosInstance';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('token');
-  }, []);
-
+  // Verify token and fetch user data
   const verifyToken = useCallback(async () => {
     try {
-      const response = await axiosInstance.get(`/api/auth/verify`);
-      const userData = response.data.user;
-      setUser(userData);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get('/api/auth/verify');
+      setUser(response.data.user);
     } catch (error) {
-      console.error('Token verification failed', error);
-      logout();
+      console.error('Token verification failed:', error);
+      localStorage.removeItem('token');
     } finally {
       setLoading(false);
     }
-  }, [logout]);
-  
+  }, []);
 
+  // Check auth status on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      verifyToken();
-    } else {
-      setLoading(false);
-    }
+    verifyToken();
   }, [verifyToken]);
 
-  const login = async (email, password) => {
-    try {
-      const response = await axiosInstance.post(`/api/auth/login`, { email, password });
-      const { user: userData, token } = response.data;
-      localStorage.setItem('token', token); // Store token first
-      setUser(userData);
-      return userData;
-    } catch (error) {
-      console.error('Login failed', error.response?.data || error.message);
-      throw error;
-    }
-  };
-
-  // Register with name, email, password, and plan
+  // Regular email/password registration
   const register = async (userData) => {
     try {
-      const response = await axiosInstance.post('/api/auth/register', userData);
-      const { user, token } = response.data;
+      const response = await axios.post('/api/auth/register', userData);
+      const { token, user } = response.data;
+      
       localStorage.setItem('token', token);
       setUser(user);
-      return user;
+      
+      return response.data;
     } catch (error) {
-      console.error('Registration failed', error.response?.data || error.message);
+      console.error('Registration error:', error);
       throw error;
     }
   };
 
-  // Initiate Google OAuth login
-const loginWithGoogle = () => {
-  window.location.href = `${API_URL}/api/auth/google`;
-};
+  // Regular email/password login
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post('/api/auth/login', { email, password });
+      const { token, user } = response.data;
+      
+      localStorage.setItem('token', token);
+      setUser(user);
+      
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
 
+  // Google OAuth login
+  const loginWithGoogle = () => {
+    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
+  };
 
-  // Handle login success by storing token and verifying it
-  const handleLoginSuccess = useCallback(async (token) => {
-    localStorage.setItem('token', token);
-    await verifyToken();
-  }, [verifyToken]);
+  // Handle OAuth success
+  const handleOAuthSuccess = async (token) => {
+    try {
+      localStorage.setItem('token', token);
+      await verifyToken();
+    } catch (error) {
+      console.error('OAuth success handling error:', error);
+      throw error;
+    }
+  };
+
+  // Update user profile
+  const updateUserProfile = async (profileData) => {
+    try {
+      const response = await axios.put('/api/profile', profileData);
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
+  };
+
+  // Refresh user data
+  const refreshUser = async () => {
+    try {
+      const response = await axios.get('/api/user');
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('User refresh error:', error);
+      throw error;
+    }
+  };
+
+  // Logout
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    // Optional: Clear any other stored data
+    sessionStorage.removeItem('selectedPlan');
+  };
+
+  // Subscription related functions
+  const checkSubscription = async () => {
+    try {
+      const response = await axios.get('/api/subscription/status');
+      const { subscriptionActive, subscriptionTier } = response.data;
+      setUser(prev => ({ ...prev, subscriptionActive, subscriptionTier }));
+      return response.data;
+    } catch (error) {
+      console.error('Subscription check error:', error);
+      throw error;
+    }
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        loading,
+        error,
+        register,
         login,
         loginWithGoogle,
-        handleLoginSuccess,
-        register,
+        handleOAuthSuccess,
+        updateUserProfile,
+        refreshUser,
         logout,
-        loading,
-        setUser,
+        checkSubscription
       }}
     >
       {children}
@@ -97,4 +146,10 @@ const loginWithGoogle = () => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

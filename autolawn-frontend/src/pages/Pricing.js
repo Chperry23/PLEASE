@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 
 const tiers = [
   {
@@ -58,7 +58,7 @@ const tiers = [
   }
 ];
 
-const PricingTier = ({ tier, handleCheckout }) => (
+const PricingTier = ({ tier, onSelect, selected }) => (
   <div className={`bg-surface p-6 rounded-lg shadow-md ${tier.recommended ? 'border-2 border-primary' : ''}`}>
     {tier.recommended && (
       <span className="bg-primary text-white px-2 py-1 rounded-full text-sm font-semibold mb-2 inline-block">
@@ -85,14 +85,14 @@ const PricingTier = ({ tier, handleCheckout }) => (
       ))}
     </ul>
     <button
-      onClick={() => handleCheckout(tier)}
+      onClick={() => onSelect(tier)}
       className={`w-full py-2 px-4 rounded font-semibold transition-colors
         ${tier.recommended 
           ? 'bg-primary text-white hover:bg-primary-dark' 
           : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
         }`}
     >
-      Choose Plan
+      Select Plan
     </button>
   </div>
 );
@@ -100,55 +100,58 @@ const PricingTier = ({ tier, handleCheckout }) => (
 const Pricing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleCheckout = (tier) => {
-    if (!user) {
-      navigate('/register', { 
-        state: { 
-          plan: tier.name,
-          paymentLink: tier.paymentLink 
-        }
-      });
-      return;
+  const handleTierSelect = async (tier) => {
+    try {
+      if (!user) {
+        // Store selected plan in session storage
+        sessionStorage.setItem('selectedPlan', JSON.stringify(tier));
+        // Redirect to register
+        navigate('/register');
+        return;
+      }
+
+      // Append client_reference_id to payment link
+      const url = new URL(tier.paymentLink);
+      url.searchParams.append('client_reference_id', user.id);
+      url.searchParams.append('success_url', `${window.location.origin}/payment-success`);
+      url.searchParams.append('cancel_url', `${window.location.origin}/pricing`);
+
+      // Redirect to Stripe checkout
+      window.location.href = url.toString();
+    } catch (error) {
+      console.error('Error selecting tier:', error);
     }
-
-    // If user is logged in, append their ID to the payment link
-    const url = new URL(tier.paymentLink);
-    url.searchParams.append('client_reference_id', user.id);
-    window.location.href = url.toString();
   };
 
   return (
-    <div className="bg-background text-text min-h-screen">
+    <div className="bg-background min-h-screen">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h1 className="text-4xl font-bold text-center mb-4">
-          Choose Your Plan
-        </h1>
-        <p className="text-xl text-center mb-12">
-          Select the perfect plan to grow your lawn care business with AUTOLAWN
-        </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-          {tiers.map((tier, index) => (
-            <PricingTier 
-              key={index} 
-              tier={tier} 
-              handleCheckout={handleCheckout}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">
+            Choose Your Plan
+          </h1>
+          <p className="mt-5 text-xl text-gray-500">
+            Select the perfect plan to grow your lawn care business
+          </p>
+        </div>
+
+        <div className="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0">
+          {tiers.map((tier) => (
+            <PricingTier
+              key={tier.name}
+              tier={tier}
+              onSelect={handleTierSelect}
             />
           ))}
         </div>
 
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold mb-4">
-            Not sure which plan is right for you?
-          </h2>
-          <a
-            href="/contact"
-            className="inline-block bg-primary text-white px-6 py-3 rounded-md text-lg font-medium hover:bg-primary-dark transition-colors"
-          >
-            Contact Us
-          </a>
+        <div className="mt-16 text-center">
+          <p className="text-base text-gray-500">
+            Need help choosing? <a href="/contact" className="text-primary hover:text-primary-dark">Contact our sales team</a>
+          </p>
         </div>
       </main>
     </div>

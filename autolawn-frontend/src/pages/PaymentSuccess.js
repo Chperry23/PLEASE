@@ -1,35 +1,53 @@
-// frontend/src/pages/PaymentSuccess.js
-
 import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const PaymentSuccess = () => {
   const navigate = useNavigate();
-  const { search } = useLocation();
+  const [searchParams] = useSearchParams();
+  const { user, refreshUser } = useAuth();
 
   useEffect(() => {
-    // Optionally, you can extract query parameters from the URL if needed
-    // For example, if you pass session_id or other data
+    const initializePaymentSuccess = async () => {
+      try {
+        // Refresh user data to get updated subscription status
+        await refreshUser();
 
-    // Redirect to sign-in or dashboard after a delay
-    const timer = setTimeout(() => {
-      navigate('/signin');
-    }, 5000);
+        // Set timeout for redirect
+        const timer = setTimeout(() => {
+          // If profile is incomplete, go to profile completion
+          if (!user?.phoneNumber || !user?.customerBaseSize) {
+            navigate('/complete-profile');
+          } else {
+            navigate('/dashboard');
+          }
+        }, 5000);
 
-    return () => clearTimeout(timer);
-  }, [navigate]);
+        return () => clearTimeout(timer);
+      } catch (error) {
+        console.error('Error processing payment success:', error);
+        navigate('/pricing');
+      }
+    };
+
+    initializePaymentSuccess();
+  }, [navigate, user, refreshUser]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <h1 className="text-3xl font-bold mb-4">Thank you for your purchase!</h1>
-      <p className="mb-8">Your subscription has been activated.</p>
-      <p>You will be redirected shortly...</p>
-      <button
-        onClick={() => navigate('/signin')}
-        className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-md"
-      >
-        Go to Sign In
-      </button>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-4 text-primary">
+          Payment Successful!
+        </h1>
+        <p className="text-xl mb-8 text-gray-600">
+          Thank you for subscribing to AutoLawn
+        </p>
+        <div className="animate-pulse">
+          <p className="text-sm text-gray-500">
+            You will be redirected automatically...
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

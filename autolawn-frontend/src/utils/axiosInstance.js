@@ -1,38 +1,53 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://autolawn.app/api', // Ensure HTTPS by default
+  baseURL: process.env.REACT_APP_API_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-
+// Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    console.log('Token retrieved from localStorage:', token); // Debugging log
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('Authorization header set with token:', config.headers.Authorization); // Debugging log
     }
+    
+    console.debug('API Request:', {
+      method: config.method,
+      url: config.url
+    });
+    
     return config;
   },
-  (error) => Promise.reject(error)
-);
-
-axiosInstance.interceptors.response.use(
-  (response) => response,
   (error) => {
-    if (error.response) {
-      console.error('Axios error response data:', error.response.data);
-      console.error('Axios error status:', error.response.status);
-      console.error('Axios error headers:', error.response.headers);
-    } else if (error.request) {
-      console.error('No response received:', error.request);
-    } else {
-      console.error('Error during request setup:', error.message);
-    }
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 );
 
+// Response interceptor
+axiosInstance.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle token expiration
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/signin';
+    }
+
+    // Handle subscription issues
+    if (error.response?.status === 402) {
+      window.location.href = '/pricing';
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default axiosInstance;
