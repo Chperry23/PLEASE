@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
+const bcrypt = require('bcryptjs');
 
 // Test route
 router.get('/test', (req, res) => {
@@ -35,9 +36,9 @@ router.post('/register', async (req, res) => {
     const user = new User({
       name,
       email,
-      password
+      password: await bcrypt.hash(password, 10)
     });
-
+    
     await user.save();
     console.log('User created successfully:', user._id);
 
@@ -60,18 +61,15 @@ router.post('/register', async (req, res) => {
       },
       message: 'Registration successful'
     });
-
   } catch (error) {
     console.error('Registration error:', error);
     
-    // Handle specific MongoDB errors
     if (error.code === 11000) {
       return res.status(400).json({
         message: 'Email already exists'
       });
     }
 
-    // Handle validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -84,6 +82,107 @@ router.post('/register', async (req, res) => {
       message: 'Server error during registration',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// Login endpoint
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Find user and include password for verification
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Create token
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
+      { expiresIn: '1d' }
+    );
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Check subscription status
+    if (!user.subscriptionTier || !user.subscriptionActive) {
+      return res.json({
+        token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          requiresSubscription: true
+        },
+        redirectTo: '/pricing'
+      });
+    }
+
+    res.json({
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        subscriptionTier: user.subscriptionTier,
+        subscriptionActive: user.subscriptionActive
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// Verify token endpoint
+router.get('/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA');
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if subscription is required
+    if (!user.subscriptionTier || !user.subscriptionActive) {
+      return res.json({
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          requiresSubscription: true
+        },
+        redirectTo: '/pricing'
+      });
+    }
+
+    res.json({
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        subscriptionTier: user.subscriptionTier,
+        subscriptionActive: user.subscriptionActive
+      }
+    });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(401).json({ message: 'Invalid token' });
   }
 });
 
@@ -105,6 +204,13 @@ router.get('/google/callback',
         process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
         { expiresIn: '1d' }
       );
+
+      // Check if user has subscription
+      const user = await User.findById(req.user._id);
+      if (!user.subscriptionTier || !user.subscriptionActive) {
+        return res.redirect(`${process.env.FRONTEND_URL}/pricing?token=${token}`);
+      }
+
       res.redirect(`${process.env.FRONTEND_URL}/oauth-success?token=${token}`);
     } catch (error) {
       console.error('OAuth callback error:', error);

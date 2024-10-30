@@ -1,11 +1,9 @@
-// backend/src/routes/userRoutes.js
-
 const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
-const authMiddleware = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth');
 
-// Fetch user subscription data
 router.get('/:userId/subscription', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
@@ -22,26 +20,41 @@ router.get('/:userId/subscription', authMiddleware, async (req, res) => {
   }
 });
 
-// Update User Profile (collect additional data)
-router.put('/update-profile', authMiddleware, async (req, res) => {
+// Update user profile
+router.put('/', auth, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { phoneNumber, customerBaseSize, jobTypes } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      {
-        phoneNumber,
-        customerBaseSize,
-        jobTypes,
-      },
-      { new: true }
-    ).select('-password');
+    // Update allowed fields
+    const { name, phoneNumber, customerBaseSize } = req.body;
+    if (name) user.name = name;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+    if (customerBaseSize) user.customerBaseSize = customerBaseSize;
 
-    res.status(200).json({ user });
+    await user.save();
+    res.json(user);
   } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ error: 'Failed to update profile.' });
+    console.error('Error updating user:', error);
+    res.status(500).json({ message: 'Error updating user' });
+  }
+});
+
+const { verifyToken } = require('../middleware/auth'); // Importing the middleware correctly
+
+// Use verifyToken (not authMiddleware)
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Error fetching user details' });
   }
 });
 

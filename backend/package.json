@@ -36,6 +36,7 @@
         "twilio": "^5.2.2"
     },
     "devDependencies": {
+        "axios": "^1.7.7",
         "mongo-seeding": "^4.0.0",
         "nodemon": "^2.0.7"
     }
