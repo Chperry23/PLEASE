@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
-const jwt = require('jsonwebtoken');
-const auth = require('../middleware/auth');
+const verifyToken = require('../middleware/auth');  // Import the middleware once with the correct name
 
-router.get('/:userId/subscription', authMiddleware, async (req, res) => {
+// Get user subscription
+router.get('/:userId/subscription', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
     if (!user) {
@@ -21,7 +21,7 @@ router.get('/:userId/subscription', authMiddleware, async (req, res) => {
 });
 
 // Update user profile
-router.put('/', auth, async (req, res) => {
+router.put('/', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -42,9 +42,7 @@ router.put('/', auth, async (req, res) => {
   }
 });
 
-const { verifyToken } = require('../middleware/auth'); // Importing the middleware correctly
-
-// Use verifyToken (not authMiddleware)
+// Get user details
 router.get('/', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
