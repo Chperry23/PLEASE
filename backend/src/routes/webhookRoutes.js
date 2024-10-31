@@ -5,19 +5,17 @@ const User = require('../models/user');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-router.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+// Apply express.raw() middleware only to this route
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
   try {
-    const sig = req.headers['stripe-signature'];
-    let event;
+    // Use req.body directly since express.raw() provides the raw buffer
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log('Webhook verified and received:', event.type);
 
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-      console.log('Webhook verified and received:', event.type);
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
+    // Handle the event
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
@@ -73,15 +71,53 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
         await handleSubscriptionDeleted(subscription);
         break;
       }
+      
+      // Add other event types as needed
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
 
     res.json({ received: true });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err);
+    res.status(400).send(`Webhook Error: ${err.message}`);
   }
 });
 
-// Helper functions remain the same...
+// Helper functions for handling subscription updates and deletions
+async function handleSubscriptionUpdated(subscription) {
+  try {
+    const user = await User.findOne({ stripeSubscriptionId: subscription.id });
+    if (!user) {
+      console.error('No user found for subscription:', subscription.id);
+      return;
+    }
+
+    // Update user subscription status
+    user.subscriptionStatus = subscription.status;
+    await user.save();
+    console.log(`Updated subscription status for user ${user._id}: ${subscription.status}`);
+  } catch (error) {
+    console.error('Error updating user subscription:', error);
+  }
+}
+
+async function handleSubscriptionDeleted(subscription) {
+  try {
+    const user = await User.findOne({ stripeSubscriptionId: subscription.id });
+    if (!user) {
+      console.error('No user found for subscription:', subscription.id);
+      return;
+    }
+
+    // Deactivate user's subscription
+    user.subscriptionActive = false;
+    user.subscriptionStatus = subscription.status;
+    await user.save();
+    console.log(`Deactivated subscription for user ${user._id}`);
+  } catch (error) {
+    console.error('Error deactivating user subscription:', error);
+  }
+}
 
 module.exports = router;

@@ -12,7 +12,6 @@ const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
-const userRoutes = require('./routes/userRoutes');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -23,12 +22,13 @@ const crewRoutes = require('./routes/crewRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
-const quoteRoutes = require(path.resolve(__dirname, './routes/quoteRoutes'));
+const quoteRoutes = require('./routes/quoteRoutes');
 const profileRoutes = require('./routes/profileroutes');
 const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 // Import passport configuration
 require('./config/passport');
@@ -47,17 +47,6 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-app.use('/api/webhooks', express.raw({type: 'application/json'}));
-
-// Add Stripe-specific middleware for webhook signature verification
-app.use(
-  express.json({
-    verify: function (req, res, buf) {
-      req.rawBody = buf; // Store raw body buffer for Stripe webhook signature verification
-    },
-  })
-);
-
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'https://autolawn.app',
@@ -65,7 +54,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.urlencoded({ extended: false }));
 
 // Session Middleware
 app.use(
@@ -90,7 +78,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Add request logging middleware
+// Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
@@ -119,6 +107,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// ** Define webhook route before body parsers **
+app.use('/api/webhooks', webhookRoutes);
+
+// ** Apply body parsers after webhook route **
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
@@ -134,7 +129,7 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/webhooks', webhookRoutes);
+// Note: The webhook route is already added above
 
 // CSV import route
 app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req, res) => {
@@ -233,3 +228,4 @@ process.on('SIGTERM', () => {
 });
 
 module.exports = app;
+
