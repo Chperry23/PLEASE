@@ -35,37 +35,50 @@ const Register = () => {
     return true;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    setLoading(true);
-    setAlert(null);
+  setLoading(true);
+  setAlert(null);
 
-    try {
-      const userData = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
-      };
+  try {
+    const userData = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password
+    };
 
-      console.log('Submitting registration:', userData);
-      const response = await register(userData);
-      console.log('Registration successful:', response);
+    console.log('Submitting registration:', userData);
+    const response = await register(userData);
+    console.log('Registration successful:', response);
 
+    if (selectedPlan) {
+      const url = new URL(selectedPlan.paymentLink);
+      // Add user ID to the URL
+      url.searchParams.append('client_reference_id', response.user._id);
+      url.searchParams.append('success_url', 
+        `${window.location.origin}/payment-success?client_reference_id=${response.user._id}`);
+      url.searchParams.append('cancel_url', `${window.location.origin}/pricing`);
+      
+      // Store user ID for payment success page
+      localStorage.setItem('pendingUserId', response.user._id);
+      
+      window.location.href = url.toString();
+    } else {
       // Redirect to pricing page for new users
       navigate('/pricing');
-    } catch (error) {
-      console.error('Registration error:', error);
-      setAlert({
-        type: 'error',
-        message: error.response?.data?.message || 'Failed to register. Please try again.'
-      });
-    } finally {
-      setLoading(false);
     }
-  };
-
+  } catch (error) {
+    console.error('Registration error:', error);
+    setAlert({
+      type: 'error',
+      message: error.response?.data?.message || 'Failed to register. Please try again.'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
   const handleGoogleSignUp = () => {
     loginWithGoogle();
   };

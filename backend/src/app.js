@@ -47,6 +47,8 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
+app.use('/api/webhooks', express.raw({type: 'application/json'}));
+
 // Add Stripe-specific middleware for webhook signature verification
 app.use(
   express.json({
