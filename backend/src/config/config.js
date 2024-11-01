@@ -10,31 +10,36 @@ const config = {
   env: process.env.NODE_ENV || 'development',
   port: process.env.PORT || 5000,
   mongodb: {
-    uri: process.env.MONGODB_URI || 'mongodb+srv://chperry66:Testing@rbdb.umkoeqi.mongodb.net/test?retryWrites=true&w=majority'
+    uri: process.env.MONGODB_URI
   },
   email: {
     mailgun: {
-      apiKey: process.env.MAILGUN_API_KEY || '5e815ebf2f0143bcadc3803bc30b4aab-5dcb5e36-5f11c10f',
-      domain: process.env.MAILGUN_DOMAIN || 'sandbox09d83e81a23b4fcfb478c417424df18d.mailgun.org'
+      apiKey: process.env.MAILGUN_API_KEY,
+      domain: process.env.MAILGUN_DOMAIN
     }
   },
   sms: {
     vonage: {
-      apiKey: process.env.VONAGE_API_KEY || '509d82f6',
-      apiSecret: process.env.VONAGE_API_SECRET || 'DJ9Wi2wU2L8CwW27',
-      from: process.env.VONAGE_SMS_FROM || '17162770383'
+      apiKey: process.env.VONAGE_API_KEY,
+      apiSecret: process.env.VONAGE_API_SECRET,
+      from: process.env.VONAGE_SMS_FROM
     }
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    options: {
+      apiVersion: '2023-10-16',
+      maxNetworkRetries: 2,
+      timeout: 30000,
+    }
   },
   auth: {
-    jwtSecret: process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
-    sessionSecret: process.env.SESSION_SECRET || 'A7f5J9kL3uP2Z1tV',
+    jwtSecret: process.env.JWT_SECRET,
+    sessionSecret: process.env.SESSION_SECRET,
     google: {
-      clientID: process.env.GOOGLE_CLIENT_ID || '217971178414-7eohkhmq4s060nchf35ilsus7km0gt62.apps.googleusercontent.com',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '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',
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: `${process.env.API_URL || 'https://autolawn.app'}/api/auth/google/callback`
     }
   },
@@ -50,6 +55,10 @@ console.log('Configuration loaded:', {
   port: config.port,
   mongodb: config.mongodb.uri ? 'Set' : 'Not set',
   mailgun: config.email.mailgun.apiKey ? 'Set' : 'Not set',
+  stripe: {
+    secretKey: config.stripe.secretKey ? 'Set' : 'Not set',
+    webhookSecret: config.stripe.webhookSecret ? 'Set' : 'Not set'
+  },
   google: {
     clientID: config.auth.google.clientID ? 'Set' : 'Not set',
     callbackURL: config.auth.google.callbackURL

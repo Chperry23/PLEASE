@@ -8,54 +8,96 @@ const PaymentSuccess = () => {
   const { refreshUser, verifyToken } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 5000; // 5 seconds
 
   useEffect(() => {
     const initializePaymentSuccess = async () => {
       try {
+        // Get identifiers
         const params = new URLSearchParams(location.search);
         const clientReferenceId = params.get('client_reference_id') || localStorage.getItem('pendingUserId');
+        const pendingEmail = localStorage.getItem('pendingUserEmail');
+        const token = localStorage.getItem('token');
 
-        if (!clientReferenceId) {
-          console.error('No client reference ID found');
+        console.log('Payment Success Initialization:', {
+          clientReferenceId,
+          hasEmail: !!pendingEmail,
+          hasToken: !!token,
+          retryCount
+        });
+
+        if (!token) {
+          console.error('No auth token found');
+          setError('Authentication required');
+          setLoading(false);
+          return;
+        }
+
+        if (!clientReferenceId && !pendingEmail) {
+          console.error('No user reference found');
           setError('Missing user reference');
           setLoading(false);
           return;
         }
 
-        // Wait for webhook to process
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Initial wait for webhook
+        console.log('Waiting for webhook processing...');
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
 
-        // Try to verify token and refresh user data
-        await verifyToken();
-        const userData = await refreshUser();
+        try {
+          // Verify token and refresh user data
+          console.log('Verifying token...');
+          await verifyToken();
+          
+          console.log('Refreshing user data...');
+          const userData = await refreshUser();
+          console.log('User data received:', userData);
 
-        if (!userData?.subscriptionActive) {
-          console.error('Subscription not activated');
-          setError('Subscription activation pending');
+          if (!userData?.subscriptionActive) {
+            console.log(`Subscription not active, attempt ${retryCount + 1} of ${MAX_RETRIES}`);
+            
+            if (retryCount < MAX_RETRIES) {
+              setRetryCount(prev => prev + 1);
+              return; // This will trigger another useEffect run
+            } else {
+              throw new Error('Subscription activation failed after retries');
+            }
+          }
+
+          // Success path
+          console.log('Subscription activated successfully');
+          localStorage.removeItem('pendingUserId');
+          localStorage.removeItem('pendingUserEmail');
+          
           setLoading(false);
-          return;
-        }
 
-        // Clear pending user ID
-        localStorage.removeItem('pendingUserId');
-        
-        setLoading(false);
-
-        // Route based on profile completion
-        if (!userData.phoneNumber || !userData.customerBaseSize) {
-          navigate('/complete-profile');
-        } else {
-          navigate('/dashboard');
+          // Route based on profile completion
+          if (!userData.phoneNumber || !userData.customerBaseSize) {
+            console.log('Redirecting to complete profile...');
+            navigate('/complete-profile');
+          } else {
+            console.log('Redirecting to dashboard...');
+            navigate('/dashboard');
+          }
+        } catch (error) {
+          console.error('Authentication error:', error);
+          setError('Authentication failed');
+          setLoading(false);
+          navigate('/signin');
         }
       } catch (error) {
         console.error('Payment success error:', error);
-        setError('Error verifying subscription');
+        setError(error.message || 'Error verifying subscription');
         setLoading(false);
       }
     };
 
-    initializePaymentSuccess();
-  }, [navigate, refreshUser, verifyToken, location]);
+    if (loading) {
+      initializePaymentSuccess();
+    }
+  }, [navigate, refreshUser, verifyToken, location, loading, retryCount]);
 
   if (error) {
     return (
@@ -67,7 +109,7 @@ const PaymentSuccess = () => {
           </p>
           <button
             onClick={() => navigate('/pricing')}
-            className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
+            className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors"
           >
             Return to Pricing
           </button>
@@ -89,7 +131,9 @@ const PaymentSuccess = () => {
           <div className="space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="text-sm text-gray-500">
-              Setting up your subscription...
+              {retryCount > 0 
+                ? `Setting up your subscription (attempt ${retryCount}/${MAX_RETRIES})...`
+                : 'Setting up your subscription...'}
             </p>
           </div>
         )}

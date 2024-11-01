@@ -17,7 +17,11 @@ module.exports = {
       JWT_SECRET: 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
       SESSION_SECRET: 'A7f5J9kL3uP2Z1tV',
       STRIPE_SECRET_KEY: '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',
-      STRIPE_WEBHOOK_SECRET: 'we_1QDCsUE1a6rnB8cNNjNABgwA'
+      STRIPE_WEBHOOK_SECRET: 'whsec_8JVIRESiWHslgVLGKhwz56eridYGDkSr',
+      
+      // Add Google OAuth environment variables
+      GOOGLE_CLIENT_ID: 'your-google-client-id',
+      GOOGLE_CLIENT_SECRET: 'your-google-client-secret'
     },
     error_file: './logs/err.log',
     out_file: './logs/out.log',

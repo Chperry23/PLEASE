@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Alert from './Alert';
 
 const Register = () => {
@@ -10,11 +10,26 @@ const Register = () => {
     password: '',
     confirmPassword: ''
   });
+  
   const [alert, setAlert] = useState(null);
   const [loading, setLoading] = useState(false);
-  
+  const [selectedPlan, setSelectedPlan] = useState(() => {
+    const stored = sessionStorage.getItem('selectedPlan');
+    return stored ? JSON.parse(stored) : null;
+  });
+
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Handle plan selection from navigation state
+    if (location.state?.plan) {
+      console.log('Setting plan from navigation:', location.state.plan);
+      setSelectedPlan(location.state.plan);
+      sessionStorage.setItem('selectedPlan', JSON.stringify(location.state.plan));
+    }
+  }, [location]);
 
   const handleChange = (e) => {
     setFormData({
@@ -35,51 +50,69 @@ const Register = () => {
     return true;
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!validateForm()) return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
-  setLoading(true);
-  setAlert(null);
+    setLoading(true);
+    setAlert(null);
 
-  try {
-    const userData = {
-      name: formData.name,
-      email: formData.email,
-      password: formData.password
-    };
+    try {
+      const userData = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      };
 
-    console.log('Submitting registration:', userData);
-    const response = await register(userData);
-    console.log('Registration successful:', response);
+      console.log('Submitting registration:', { ...userData, password: '[FILTERED]' });
+      const response = await register(userData);
+      console.log('Registration successful:', response);
 
-    if (selectedPlan) {
-      const url = new URL(selectedPlan.paymentLink);
-      // Add user ID to the URL
-      url.searchParams.append('client_reference_id', response.user._id);
-      url.searchParams.append('success_url', 
-        `${window.location.origin}/payment-success?client_reference_id=${response.user._id}`);
-      url.searchParams.append('cancel_url', `${window.location.origin}/pricing`);
-      
-      // Store user ID for payment success page
-      localStorage.setItem('pendingUserId', response.user._id);
-      
-      window.location.href = url.toString();
-    } else {
-      // Redirect to pricing page for new users
-      navigate('/pricing');
+      // Always store the token
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+      }
+
+      if (selectedPlan) {
+        const url = new URL(selectedPlan.paymentLink);
+        
+        // Log payment setup
+        console.log('Setting up payment redirect:', {
+          userId: response.user._id,
+          planName: selectedPlan.name,
+          origin: window.location.origin
+        });
+        
+        // Add required parameters
+        url.searchParams.append('client_reference_id', response.user._id);
+        url.searchParams.append('success_url', 
+          `${window.location.origin}/payment-success?client_reference_id=${response.user._id}`);
+        url.searchParams.append('cancel_url', `${window.location.origin}/pricing`);
+        
+        // Store user data for verification
+        localStorage.setItem('pendingUserId', response.user._id);
+        localStorage.setItem('pendingUserEmail', response.user.email);
+        
+        console.log('Redirecting to payment:', url.toString());
+        window.location.href = url.toString();
+      } else {
+        console.log('No plan selected, redirecting to pricing');
+        navigate('/pricing');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setAlert({
+        type: 'error',
+        message: error.response?.data?.message || 'Failed to register. Please try again.'
+      });
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Registration error:', error);
-    setAlert({
-      type: 'error',
-      message: error.response?.data?.message || 'Failed to register. Please try again.'
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleGoogleSignUp = () => {
+    if (selectedPlan) {
+      sessionStorage.setItem('selectedPlan', JSON.stringify(selectedPlan));
+    }
     loginWithGoogle();
   };
 
@@ -89,6 +122,11 @@ const handleSubmit = async (e) => {
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold">
             Create your account
+            {selectedPlan && (
+              <span className="block text-lg font-medium text-gray-600 mt-2">
+                Selected Plan: {selectedPlan.name}
+              </span>
+            )}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Or{' '}

@@ -5,40 +5,63 @@ const User = require('../models/user');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-// Apply express.raw() middleware only to this route
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  let event;
+
+  console.log('Webhook received:', {
+    hasSignature: !!sig,
+    contentType: req.headers['content-type'],
+    bodyType: typeof req.body,
+    hasRawBody: !!req.body,
+    rawBodyStart: req.body ? req.body.toString().substring(0, 50) : null // Log start of raw body
+  });
 
   try {
-    // Use req.body directly since express.raw() provides the raw buffer
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-    console.log('Webhook verified and received:', event.type);
+    let event;
 
-    // Handle the event
+    try {
+      // Use req.body directly since express.raw() was used in app.js
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+      console.log('Webhook verified successfully:', event.type);
+    } catch (err) {
+      console.error('Webhook signature verification failed:', {
+        error: err.message,
+        signature: sig?.slice(0, 20),
+        hasRawBody: !!req.body
+      });
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
         console.log('Processing checkout session:', session.id);
-        
+
         // Get customer details
         const customer = await stripe.customers.retrieve(session.customer);
-        
+
         // Try to find user by client_reference_id first, then by email
         let user = null;
-        if (session.client_reference_id) {
+        if (session.client_reference_id && session.client_reference_id !== 'undefined') {
           user = await User.findById(session.client_reference_id);
+          console.log('Found user by ID:', session.client_reference_id);
         }
+
         if (!user && customer.email) {
           user = await User.findOne({ email: customer.email });
+          console.log('Found user by email:', customer.email);
         }
-        
+
         if (!user) {
-          console.error('No user found for session:', session.id);
+          console.error('No user found for session:', {
+            id: session.id,
+            clientId: session.client_reference_id,
+            email: customer.email
+          });
           return res.status(400).json({ error: 'User not found' });
         }
 
-        // Get subscription and product details
+        // Get subscription details
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
         const productId = subscription.items.data[0].price.product;
 
@@ -54,37 +77,43 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         user.stripeSubscriptionId = session.subscription;
         user.subscriptionTier = tierMap[productId] || 'Basic';
         user.subscriptionActive = true;
-        
+        user.subscriptionStartDate = new Date();
+
         await user.save();
-        console.log(`Updated subscription for user ${user._id}: ${user.subscriptionTier}`);
+        console.log('Updated subscription for user:', {
+          userId: user._id,
+          tier: user.subscriptionTier,
+          subscriptionId: user.stripeSubscriptionId
+        });
         break;
       }
-      
+
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
         await handleSubscriptionUpdated(subscription);
         break;
       }
-      
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
         await handleSubscriptionDeleted(subscription);
         break;
       }
-      
-      // Add other event types as needed
+
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     res.json({ received: true });
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+  } catch (error) {
+    console.error('Webhook Error:', {
+      error: error.message,
+      stack: error.stack
+    });
+    return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 });
 
-// Helper functions for handling subscription updates and deletions
 async function handleSubscriptionUpdated(subscription) {
   try {
     const user = await User.findOne({ stripeSubscriptionId: subscription.id });
@@ -93,12 +122,18 @@ async function handleSubscriptionUpdated(subscription) {
       return;
     }
 
-    // Update user subscription status
+    user.subscriptionActive = subscription.status === 'active';
     user.subscriptionStatus = subscription.status;
     await user.save();
-    console.log(`Updated subscription status for user ${user._id}: ${subscription.status}`);
+    
+    console.log('Updated subscription status for user:', {
+      userId: user._id,
+      status: subscription.status,
+      active: user.subscriptionActive
+    });
   } catch (error) {
-    console.error('Error updating user subscription:', error);
+    console.error('Error handling subscription update:', error);
+    throw error;
   }
 }
 
@@ -110,13 +145,16 @@ async function handleSubscriptionDeleted(subscription) {
       return;
     }
 
-    // Deactivate user's subscription
     user.subscriptionActive = false;
-    user.subscriptionStatus = subscription.status;
+    user.subscriptionTier = null;
+    user.stripeSubscriptionId = null;
+    user.subscriptionStatus = 'canceled';
     await user.save();
-    console.log(`Deactivated subscription for user ${user._id}`);
+    
+    console.log('Subscription deleted for user:', user._id);
   } catch (error) {
-    console.error('Error deactivating user subscription:', error);
+    console.error('Error handling subscription deletion:', error);
+    throw error;
   }
 }
 
