@@ -4,158 +4,77 @@ const stripe = require('../utils/stripe');
 const User = require('../models/user');
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const validateRawBody = (req, res, next) => {
+  if (!Buffer.isBuffer(req.body)) {
+    console.error('Request body is not a buffer:', typeof req.body);
+    return res.status(400).send('Invalid request body format');
+  }
+  next();
+};
 
-router.post('/webhook', async (req, res) => {
+router.post('/', validateRawBody, async (req, res) => {
+  console.log('Received webhook at:', new Date().toISOString());
+  
+  // Log request details
+  console.log('Protocol:', req.protocol);
+  console.log('X-Forwarded-Proto:', req.get('x-forwarded-proto'));
+  console.log('Original URL:', req.originalUrl);
+  console.log('Base URL:', req.baseUrl);
+  console.log('Path:', req.path);
+  
   const sig = req.headers['stripe-signature'];
-
-  console.log('Webhook received:', {
-    hasSignature: !!sig,
-    contentType: req.headers['content-type'],
-    bodyType: typeof req.body,
-    hasRawBody: !!req.body,
-    rawBodyStart: req.body ? req.body.toString().substring(0, 50) : null // Log start of raw body
-  });
+  
+  // Validate webhook secret
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  console.log('Webhook secret first 4 chars:', webhookSecret?.substring(0, 4));
+  
+  if (!sig || !webhookSecret) {
+    console.error('Missing required webhook configuration');
+    return res.status(400).send('Missing webhook configuration');
+  }
 
   try {
-    let event;
+    // Log raw body details
+    console.log('Raw body length:', req.body.length);
+    console.log('Raw body type:', typeof req.body);
+    console.log('Is Buffer:', Buffer.isBuffer(req.body));
+    console.log('Content-Type:', req.get('content-type'));
+    
+    // Do not attempt to parse or transform the body
+    const event = stripe.webhooks.constructEvent(
+      req.body, // Must be raw buffer
+      sig,
+      webhookSecret
+    );
 
-    try {
-      // Use req.body directly since express.raw() was used in app.js
-      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-      console.log('Webhook verified successfully:', event.type);
-    } catch (err) {
-      console.error('Webhook signature verification failed:', {
-        error: err.message,
-        signature: sig?.slice(0, 20),
-        hasRawBody: !!req.body
-      });
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
+    console.log('Event validated successfully:', event.type);
 
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        console.log('Processing checkout session:', session.id);
-
-        // Get customer details
-        const customer = await stripe.customers.retrieve(session.customer);
-
-        // Try to find user by client_reference_id first, then by email
-        let user = null;
-        if (session.client_reference_id && session.client_reference_id !== 'undefined') {
-          user = await User.findById(session.client_reference_id);
-          console.log('Found user by ID:', session.client_reference_id);
-        }
-
-        if (!user && customer.email) {
-          user = await User.findOne({ email: customer.email });
-          console.log('Found user by email:', customer.email);
-        }
-
-        if (!user) {
-          console.error('No user found for session:', {
-            id: session.id,
-            clientId: session.client_reference_id,
-            email: customer.email
-          });
-          return res.status(400).json({ error: 'User not found' });
-        }
-
-        // Get subscription details
-        const subscription = await stripe.subscriptions.retrieve(session.subscription);
-        const productId = subscription.items.data[0].price.product;
-
-        // Map product IDs to tiers
-        const tierMap = {
-          'prod_R2TeQ4r5iOH6CG': 'Basic',
-          'prod_R2TfmQYMHxix1e': 'Pro',
-          'prod_R2TgIYi0HUAYxf': 'Enterprise'
-        };
-
-        // Update user subscription details
-        user.stripeCustomerId = session.customer;
-        user.stripeSubscriptionId = session.subscription;
-        user.subscriptionTier = tierMap[productId] || 'Basic';
-        user.subscriptionActive = true;
-        user.subscriptionStartDate = new Date();
-
-        await user.save();
-        console.log('Updated subscription for user:', {
-          userId: user._id,
-          tier: user.subscriptionTier,
-          subscriptionId: user.stripeSubscriptionId
-        });
+      case 'charge.updated':
+        console.log('Processing charge update:', event.data.object.id);
         break;
-      }
-
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object;
-        await handleSubscriptionUpdated(subscription);
+      case 'checkout.session.completed':
+        console.log('Processing checkout completion:', event.data.object.id);
         break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        await handleSubscriptionDeleted(subscription);
-        break;
-      }
-
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
 
     res.json({ received: true });
-  } catch (error) {
-    console.error('Webhook Error:', {
-      error: error.message,
-      stack: error.stack
+  } catch (err) {
+    console.error('Webhook Processing Error:', {
+      message: err.message,
+      stack: err.stack,
+      signatureHeader: sig,
+      bodyIsBuffer: Buffer.isBuffer(req.body),
+      bodyLength: req.body?.length,
+      protocol: req.protocol,
+      forwardedProto: req.get('x-forwarded-proto'),
+      webhookSecretLength: webhookSecret?.length
     });
-    return res.status(400).send(`Webhook Error: ${error.message}`);
+
+    res.status(400).send(`Webhook Error: ${err.message}`);
   }
 });
 
-async function handleSubscriptionUpdated(subscription) {
-  try {
-    const user = await User.findOne({ stripeSubscriptionId: subscription.id });
-    if (!user) {
-      console.error('No user found for subscription:', subscription.id);
-      return;
-    }
-
-    user.subscriptionActive = subscription.status === 'active';
-    user.subscriptionStatus = subscription.status;
-    await user.save();
-    
-    console.log('Updated subscription status for user:', {
-      userId: user._id,
-      status: subscription.status,
-      active: user.subscriptionActive
-    });
-  } catch (error) {
-    console.error('Error handling subscription update:', error);
-    throw error;
-  }
-}
-
-async function handleSubscriptionDeleted(subscription) {
-  try {
-    const user = await User.findOne({ stripeSubscriptionId: subscription.id });
-    if (!user) {
-      console.error('No user found for subscription:', subscription.id);
-      return;
-    }
-
-    user.subscriptionActive = false;
-    user.subscriptionTier = null;
-    user.stripeSubscriptionId = null;
-    user.subscriptionStatus = 'canceled';
-    await user.save();
-    
-    console.log('Subscription deleted for user:', user._id);
-  } catch (error) {
-    console.error('Error handling subscription deletion:', error);
-    throw error;
-  }
-}
-
-module.exports = router;
+module.exports = router

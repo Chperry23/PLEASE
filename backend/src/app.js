@@ -12,7 +12,6 @@ const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -27,7 +26,7 @@ const quoteRoutes = require('./routes/quoteRoutes');
 const profileRoutes = require('./routes/profileroutes');
 const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const webhookRoutes = require('./routes/webhookRoutes');
+const webhookRoutes = require('./routes/webhookRoutes'); // webhook routes
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const userRoutes = require('./routes/userRoutes');
 
@@ -47,39 +46,6 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.error('MongoDB connection error:', err);
   process.exit(1);
 });
-
-// Stripe webhook endpoint with express.raw()
-app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    console.log('Stripe event verified:', event.type);
-
-    // Handle the event (e.g., payment succeeded)
-    if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object;
-      // Process paymentIntent
-    }
-
-    res.status(200).send();
-  } catch (err) {
-    console.error('Error verifying Stripe webhook:', err);
-    res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-});
-
-// General middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://autolawn.app',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature']
-}));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
 
 // Session Middleware
 app.use(
@@ -104,16 +70,53 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// CORS Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'https://autolawn.app',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 // Request logging middleware
 app.use((req, res, next) => {
-  if (!req.originalUrl.includes('/api/webhooks')) {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  }
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
+// Middleware for retrying transactions
+app.use((req, res, next) => {
+  req.retryTransaction = async (fn, maxRetries = 5) => {
+    let retries = 0;
+    while (retries < maxRetries) {
+      try {
+        return await fn();
+      } catch (error) {
+        console.error(`Transaction error (Attempt ${retries + 1}):`, error);
+        if (error.code === 112 && error.codeName === 'WriteConflict') {
+          retries++;
+          console.log(`Retrying transaction. Attempt ${retries} of ${maxRetries}`);
+          await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, retries))); // Exponential backoff
+        } else {
+          throw error;
+        }
+      }
+    }
+    throw new Error('Transaction failed after max retries');
+  };
+  next();
+});
+
+// ** Define webhook route before body parsers **
+app.use('/api/webhooks/webhook', 
+  express.raw({ type: 'application/json' }), // This must come first
+  webhookRoutes
+);
+// ** Apply body parsers after webhook route **
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
 // Use routes
-app.use('/api/webhooks', webhookRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/customers', customerRoutes);
@@ -128,6 +131,7 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+// Note: The webhook route is already added above
 
 // CSV import route
 app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req, res) => {
