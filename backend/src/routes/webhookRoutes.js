@@ -1,86 +1,118 @@
-// webhookRoutes.js
 const express = require('express');
 const router = express.Router();
 const stripe = require('../utils/stripe');
+const crypto = require('crypto');
 
-router.post('/', express.raw({type: 'application/json'}), async (req, res) => {
+// Raw body parser
+const rawParser = express.raw({
+  type: 'application/json',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+});
+
+router.post('/', rawParser, async (req, res) => {
   try {
     console.log('\n=== Webhook Request ===');
-    console.log('Headers:', req.headers);
-    
-    // Validate stripe signature header exists
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+
+    // Debug request details
+    console.log('\n=== Request Details ===');
+    console.log('URL:', req.url);
+    console.log('Method:', req.method);
+    console.log('Remote IP:', req.ip);
+    console.log('Original URL:', req.originalUrl);
+
+    // Get stripe signature
     const sig = req.headers['stripe-signature'];
     if (!sig) {
-      console.error('Missing stripe-signature header');
-      return res.status(400).json({ error: 'Missing stripe-signature header' });
+      console.error('No stripe signature found');
+      return res.status(400).json({ error: 'No stripe signature found' });
     }
 
-    // Verify we have a body
-    if (!req.body) {
-      console.error('Missing request body');
-      return res.status(400).json({ error: 'Missing request body' });
-    }
-
-    // Debug body
-    console.log('\n=== Request Body ===');
-    console.log('Body type:', typeof req.body);
-    console.log('Is Buffer:', Buffer.isBuffer(req.body));
-    console.log('Body length:', req.body.length);
-    console.log('Body preview (hex):', req.body.slice(0, 50).toString('hex'));
-    console.log('Body preview (utf8):', req.body.slice(0, 50).toString('utf8'));
+    // Debug body details
+    const rawBody = req.rawBody;
+    console.log('\n=== Body Details ===');
+    console.log('Raw body exists:', !!rawBody);
+    console.log('Is Buffer:', Buffer.isBuffer(rawBody));
+    console.log('Length:', rawBody?.length);
+    console.log('Hash:', crypto.createHash('sha256').update(rawBody).digest('hex'));
 
     // Debug signature
     console.log('\n=== Signature Details ===');
+    console.log('Raw signature:', sig);
     const sigParts = sig.split(',').reduce((acc, part) => {
       const [key, value] = part.split('=');
       acc[key] = value;
       return acc;
     }, {});
     console.log('Signature parts:', sigParts);
-    console.log('Timestamp:', sigParts.t);
-    console.log('v1 signature:', sigParts.v1?.substring(0, 20) + '...');
 
-    // Verify event
-    console.log('\n=== Verifying Event ===');
+    // Debug webhook secret
+    console.log('\n=== Webhook Configuration ===');
+    console.log('Secret exists:', !!process.env.STRIPE_WEBHOOK_SECRET);
     console.log('Secret length:', process.env.STRIPE_WEBHOOK_SECRET?.length);
-    console.log('Secret prefix:', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 7));
-    
+
+    // Verify the event
     const event = stripe.webhooks.constructEvent(
-      req.body,
+      rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
-    console.log('Event verified:', event.type);
-    console.log('Event ID:', event.id);
+    console.log('\n=== Event Verified ===');
+    console.log('Type:', event.type);
+    console.log('ID:', event.id);
 
-    // Handle the event
+    // Handle different event types
     switch (event.type) {
       case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object;
-        console.log('Processing payment_intent:', paymentIntent.id);
+        const payment = event.data.object;
+        console.log('Payment succeeded:', {
+          id: payment.id,
+          amount: payment.amount,
+          status: payment.status
+        });
         break;
+
+      case 'payment_intent.created':
+        console.log('Payment created:', event.data.object.id);
+        break;
+
+      case 'charge.succeeded':
+        const charge = event.data.object;
+        console.log('Charge succeeded:', {
+          id: charge.id,
+          amount: charge.amount,
+          status: charge.status
+        });
+        break;
+
+      case 'charge.updated':
+        const updatedCharge = event.data.object;
+        console.log('Charge updated:', {
+          id: updatedCharge.id,
+          status: updatedCharge.status
+        });
+        break;
+
       default:
         console.log('Unhandled event type:', event.type);
     }
 
-    res.json({ received: true });
+    res.json({
+      received: true,
+      type: event.type,
+      id: event.id
+    });
   } catch (err) {
     console.error('\n=== Webhook Error ===');
     console.error('Error Type:', err.constructor.name);
     console.error('Error Message:', err.message);
     console.error('Stack:', err.stack);
 
-    // Additional debug info if we have a body
-    if (req.body) {
-      console.error('Body Hash:', require('crypto')
-        .createHash('md5')
-        .update(req.body)
-        .digest('hex')
-      );
-    }
-
-    res.status(400).json({ 
+    res.status(400).json({
       error: err.message,
       type: err.constructor.name
     });

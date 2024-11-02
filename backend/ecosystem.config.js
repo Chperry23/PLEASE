@@ -1,4 +1,10 @@
-// ecosystem.config.js
+const dotenv = require('dotenv');
+const path = require('path');
+
+// Load environment variables from .env file
+const env = dotenv.config().parsed || {};
+
+
 module.exports = {
   apps: [
     {
@@ -31,9 +37,12 @@ module.exports = {
     {
       name: 'webhook',
       script: 'src/webhookServer.js',
+      watch: false,
       env: {
         NODE_ENV: 'production',
-        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET
+        WEBHOOK_PORT: 5001,
+        STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY,
+        STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET
       }
     }
   ]
