@@ -26,7 +26,7 @@ const quoteRoutes = require('./routes/quoteRoutes');
 const profileRoutes = require('./routes/profileroutes');
 const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const webhookRoutes = require('./routes/webhookRoutes'); // webhook routes
+const webhookRoutes = require('./routes/webhookRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const userRoutes = require('./routes/userRoutes');
 
@@ -47,44 +47,55 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// Session Middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'A7f5J9kL3uP2Z1tV',
-    resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGODB_URI,
-      ttl: 24 * 60 * 60 // 1 day
-    }),
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    },
-    proxy: true
-  })
-);
-
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-// CORS Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://autolawn.app',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Request logging middleware
+// Basic request logging (before any body parsing)
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
-// Middleware for retrying transactions
+// CORS configuration - Before any body parsing but after logging
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'https://autolawn.app',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature'] // Added stripe-signature
+}));
+
+// Webhook route must come before any body parsers
+// This creates a specific route that preserves the raw body
+app.use('/api/webhooks/webhook', express.raw({
+  type: 'application/json',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}), webhookRoutes);
+
+// After webhook route, setup regular body parsing for other routes
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'A7f5J9kL3uP2Z1tV',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    ttl: 24 * 60 * 60 // 1 day
+  }),
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  },
+  proxy: true
+}));
+
+// Passport initialization
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Transaction retry middleware
 app.use((req, res, next) => {
   req.retryTransaction = async (fn, maxRetries = 5) => {
     let retries = 0;
@@ -96,7 +107,7 @@ app.use((req, res, next) => {
         if (error.code === 112 && error.codeName === 'WriteConflict') {
           retries++;
           console.log(`Retrying transaction. Attempt ${retries} of ${maxRetries}`);
-          await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, retries))); // Exponential backoff
+          await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, retries)));
         } else {
           throw error;
         }
@@ -107,16 +118,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ** Define webhook route before body parsers **
-app.use('/api/webhooks/webhook', 
-  express.raw({ type: 'application/json' }), // This must come first
-  webhookRoutes
-);
-// ** Apply body parsers after webhook route **
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Use routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/customers', customerRoutes);
@@ -131,35 +133,36 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-// Note: The webhook route is already added above
+app.use('/api/webhooks/webhook', webhookRoutes);
 
 // CSV import route
-app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
-  }
+app.post('/api/customers/import', 
+  multer({ dest: 'temp/' }).single('file'),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).send('No file uploaded.');
+    }
 
-  const results = [];
-
-  fs.createReadStream(req.file.path)
-    .pipe(csv())
-    .on('data', (data) => results.push(data))
-    .on('end', async () => {
-      try {
-        console.log('Parsed CSV data:', results);
-        res.json({ message: 'Customers imported successfully', count: results.length });
-      } catch (error) {
-        console.error('Error saving customers:', error);
-        res.status(500).json({ message: 'Error importing customers' });
-      } finally {
-        fs.unlinkSync(req.file.path);
-      }
-    });
+    const results = [];
+    fs.createReadStream(req.file.path)
+      .pipe(csv())
+      .on('data', (data) => results.push(data))
+      .on('end', async () => {
+        try {
+          console.log('Parsed CSV data:', results);
+          res.json({ message: 'Customers imported successfully', count: results.length });
+        } catch (error) {
+          console.error('Error saving customers:', error);
+          res.status(500).json({ message: 'Error importing customers' });
+        } finally {
+          fs.unlinkSync(req.file.path);
+        }
+      });
 });
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
+  res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
@@ -167,23 +170,23 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 Route
+// 404 Route - Must come after all other routes
 app.use((req, res) => {
   console.log('404 Not Found:', req.path);
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Not Found',
     path: req.path,
     method: req.method
   });
 });
 
-// Error Handling Middleware
+// Error Handling Middleware - Must be last
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   if (err.name === 'MongoError' && err.code === 112) {
     return res.status(409).json({ message: 'Conflict detected. Please try again.' });
   }
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
   });
 });
