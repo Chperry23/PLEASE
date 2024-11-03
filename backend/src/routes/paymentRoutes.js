@@ -82,17 +82,21 @@ router.post('/create-checkout-session', auth, async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      // Fixed URL string template literals
+      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&client_reference_id=${userId}`,
       cancel_url: `${process.env.FRONTEND_URL}/pricing`,
       client_reference_id: userId,
       customer: customer?.id || req.user.stripeCustomerId,
       customer_email: !customer?.id ? req.user.email : undefined,
-      line_items: [
-        {
-          price: productId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{
+        price: productId,
+        quantity: 1,
+      }],
+      metadata: {
+        userId: userId,
+        // Add subscription tier based on productId
+        subscriptionTier: getSubscriptionTierFromProductId(productId)
+      },
       subscription_data: {
         metadata: {
           userId: userId
@@ -107,6 +111,15 @@ router.post('/create-checkout-session', auth, async (req, res) => {
   }
 });
 
+// Helper function to map product IDs to subscription tiers
+function getSubscriptionTierFromProductId(productId) {
+  const tierMap = {
+    'prod_R2TeQ4r5iOH6CG': 'basic',
+    'prod_R2TfmQYMHxix1e': 'pro',
+    'prod_R2TgIYi0HUAYxf': 'enterprise'
+  };
+  return tierMap[productId] || 'basic';
+}
 // Verify subscription status
 router.get('/subscription-status', auth, async (req, res) => {
   try {
@@ -150,6 +163,52 @@ router.post('/cancel-subscription', auth, async (req, res) => {
   } catch (error) {
     console.error('Error canceling subscription:', error);
     res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// Add this to your existing payment routes
+router.post('/verify-session', auth, async (req, res) => {
+  try {
+    const { sessionId, clientReferenceId, email } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    // Retrieve the session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    // If we have a client reference ID, verify it matches
+    if (clientReferenceId && session.client_reference_id && 
+        session.client_reference_id !== clientReferenceId) {
+      return res.status(403).json({ error: 'Invalid client reference' });
+    }
+
+    // If we have an email, verify it matches
+    if (email && session.customer_email && 
+        session.customer_email !== email) {
+      return res.status(403).json({ error: 'Invalid email' });
+    }
+
+    // Get subscription status if available
+    let subscription;
+    if (session.subscription) {
+      subscription = await stripe.subscriptions.retrieve(session.subscription);
+    }
+
+    res.json({
+      success: true,
+      session: {
+        id: session.id,
+        status: session.payment_status,
+        subscriptionStatus: subscription?.status,
+        customerId: session.customer,
+        subscriptionId: session.subscription
+      }
+    });
+  } catch (err) {
+    console.error('Session verification error:', err);
+    res.status(400).json({ error: err.message });
   }
 });
 

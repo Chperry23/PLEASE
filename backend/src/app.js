@@ -1,3 +1,5 @@
+// app.js
+
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -9,7 +11,6 @@ const passport = require('passport');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
-const path = require('path');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 
@@ -26,7 +27,7 @@ const quoteRoutes = require('./routes/quoteRoutes');
 const profileRoutes = require('./routes/profileroutes');
 const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const webhookRoutes = require('./routes/webhookRoutes');
+const webhookRoutes = require('./routes/webhookRoutes'); // Updated to match the actual filename
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const userRoutes = require('./routes/userRoutes');
 
@@ -36,10 +37,13 @@ require('./config/passport');
 // Initialize Express app
 const app = express();
 
+// Trust proxy settings if behind a reverse proxy (e.g., Nginx)
+app.set('trust proxy', true);
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
 }).then(() => {
   console.log('MongoDB connected successfully');
 }).catch(err => {
@@ -58,17 +62,20 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'https://autolawn.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature'] // Added stripe-signature
+  allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
 }));
 
 // Webhook route must come before any body parsers
-// This creates a specific route that preserves the raw body
-app.use('/api/webhooks/webhook', express.raw({
-  type: 'application/json',
-  verify: (req, res, buf) => {
-    req.rawBody = buf;
-  }
-}), webhookRoutes);
+// Preserve the raw body for Stripe
+app.use(
+  '/api/webhooks/webhook',
+  express.raw({ type: 'application/json' }),
+  (req, res, next) => {
+    req.rawBody = req.body;
+    next();
+  },
+  webhookRoutes
+);
 
 // After webhook route, setup regular body parsing for other routes
 app.use(express.json());
@@ -81,14 +88,14 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60 // 1 day
+    ttl: 24 * 60 * 60, // 1 day
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
   },
-  proxy: true
+  proxy: true,
 }));
 
 // Passport initialization
@@ -133,10 +140,10 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/webhooks/webhook', webhookRoutes);
+// Note: Do not re-register the webhook route here
 
 // CSV import route
-app.post('/api/customers/import', 
+app.post('/api/customers/import',
   multer({ dest: 'temp/' }).single('file'),
   (req, res) => {
     if (!req.file) {
@@ -158,7 +165,8 @@ app.post('/api/customers/import',
           fs.unlinkSync(req.file.path);
         }
       });
-});
+  }
+);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
@@ -166,7 +174,7 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
   });
 });
 
@@ -176,7 +184,7 @@ app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
     path: req.path,
-    method: req.method
+    method: req.method,
   });
 });
 
@@ -187,7 +195,7 @@ app.use((err, req, res, next) => {
     return res.status(409).json({ message: 'Conflict detected. Please try again.' });
   }
   res.status(err.status || 500).json({
-    message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+    message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
   });
 });
 

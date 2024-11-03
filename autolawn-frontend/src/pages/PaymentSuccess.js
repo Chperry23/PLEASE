@@ -9,36 +9,38 @@ const PaymentSuccess = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 5000; // 5 seconds
+
+  const MAX_RETRIES = 6; // Increased retries
+  const RETRY_DELAY = 3000; // Reduced to 3 seconds
 
   useEffect(() => {
     const initializePaymentSuccess = async () => {
       try {
         // Get identifiers
         const params = new URLSearchParams(location.search);
-        const clientReferenceId = params.get('client_reference_id') || localStorage.getItem('pendingUserId');
-        const pendingEmail = localStorage.getItem('pendingUserEmail');
+        const sessionId = params.get('session_id');
         const token = localStorage.getItem('token');
 
         console.log('Payment Success Initialization:', {
-          clientReferenceId,
-          hasEmail: !!pendingEmail,
+          sessionId,
           hasToken: !!token,
-          retryCount
+          retryCount,
+          timestamp: new Date().toISOString()
         });
+
+        if (!sessionId) {
+          console.error('No session ID found');
+          setError('Missing payment information');
+          setLoading(false);
+          navigate('/pricing');
+          return;
+        }
 
         if (!token) {
           console.error('No auth token found');
           setError('Authentication required');
           setLoading(false);
-          return;
-        }
-
-        if (!clientReferenceId && !pendingEmail) {
-          console.error('No user reference found');
-          setError('Missing user reference');
-          setLoading(false);
+          navigate('/signin');
           return;
         }
 
@@ -47,38 +49,32 @@ const PaymentSuccess = () => {
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
 
         try {
-          // Verify token and refresh user data
-          console.log('Verifying token...');
-          await verifyToken();
-          
-          console.log('Refreshing user data...');
+          // Check subscription status
           const userData = await refreshUser();
           console.log('User data received:', userData);
 
-          if (!userData?.subscriptionActive) {
+          if (!userData?.subscriptionActive || !userData?.subscriptionTier) {
             console.log(`Subscription not active, attempt ${retryCount + 1} of ${MAX_RETRIES}`);
-            
             if (retryCount < MAX_RETRIES) {
               setRetryCount(prev => prev + 1);
               return; // This will trigger another useEffect run
             } else {
-              throw new Error('Subscription activation failed after retries');
+              throw new Error('Subscription activation not detected after maximum retries');
             }
           }
 
           // Success path
-          console.log('Subscription activated successfully');
-          localStorage.removeItem('pendingUserId');
-          localStorage.removeItem('pendingUserEmail');
-          
+          console.log('Subscription activated successfully:', {
+            tier: userData.subscriptionTier,
+            active: userData.subscriptionActive
+          });
+
           setLoading(false);
 
           // Route based on profile completion
           if (!userData.phoneNumber || !userData.customerBaseSize) {
-            console.log('Redirecting to complete profile...');
             navigate('/complete-profile');
           } else {
-            console.log('Redirecting to dashboard...');
             navigate('/dashboard');
           }
         } catch (error) {
@@ -99,44 +95,36 @@ const PaymentSuccess = () => {
     }
   }, [navigate, refreshUser, verifyToken, location, loading, retryCount]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">{error}</h1>
-          <p className="text-gray-600 mb-4">
-            Please contact support if this issue persists.
-          </p>
-          <button
-            onClick={() => navigate('/pricing')}
-            className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors"
-          >
-            Return to Pricing
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Keep showing loading state until redirect
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-      <div className="text-center">
+      <div className="text-center max-w-md mx-auto px-4">
         <h1 className="text-4xl font-bold mb-4 text-primary">
           Payment Successful!
         </h1>
         <p className="text-xl mb-8 text-gray-600">
           Thank you for subscribing to AutoLawn
         </p>
-        {loading && (
+        {loading ? (
           <div className="space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="text-sm text-gray-500">
               {retryCount > 0 
-                ? `Setting up your subscription (attempt ${retryCount}/${MAX_RETRIES})...`
-                : 'Setting up your subscription...'}
+                ? `Activating your subscription (attempt ${retryCount}/${MAX_RETRIES})...`
+                : 'Activating your subscription...'}
             </p>
           </div>
-        )}
+        ) : error ? (
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => navigate('/pricing')}
+              className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors"
+            >
+              Return to Pricing
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

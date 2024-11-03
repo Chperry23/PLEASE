@@ -1,106 +1,103 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema(
-  {
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-    },
-    email: {
-      type: String,
-      unique: true,
-      required: true,
-    },
-    name: {
-      type: String,
-      required: true,
-    },
-    password: {
-      type: String,
-      required: function() {
-        return !this.googleId;
-      },
-      select: false,
-    },
-    googleAccessToken: String,
-    googleRefreshToken: String,
-    phoneNumber: String,
-    customerBaseSize: Number,
-    jobTypes: String,
-    subscriptionTier: {
-      type: String,
-      enum: ['Basic', 'Pro', 'Enterprise', null],
-      default: null,
-    },
-    subscriptionActive: {
-      type: Boolean,
-      default: false,
-    },
-    stripeCustomerId: {
-      type: String,
-    },
-    stripeSubscriptionId: {
-      type: String,
-    },
-    role: {
-      type: String,
-      enum: ['Admin', 'Manager', 'Employee'],
-      default: 'Employee',
-    },
-    lastLogin: Date,
-    accountStatus: {
-      type: String,
-      enum: ['Active', 'Inactive', 'Suspended'],
-      default: 'Active',
-    },
-    preferences: {
-      theme: {
-        type: String,
-        default: 'light',
-      },
-      notifications: {
-        email: { type: Boolean, default: true },
-        push: { type: Boolean, default: false },
-      },
-    },
-    businessInfo: {
-      name: String,
-      logo: String,
-      address: String,
-      phone: String,
-      email: String,
-      website: String,
-    },
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
   },
-  {
-    timestamps: true,
-  }
-);
-
-// Password hashing middleware
-userSchema.pre('save', async function(next) {
-  try {
-    if (this.isModified('password')) {
-      this.password = await bcrypt.hash(this.password, 10);
-    }
-    next();
-  } catch (error) {
-    next(error);
-  }
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  role: {
+    type: String,
+    enum: ['Admin', 'Employee', 'Manager'],
+    default: 'Employee'
+  },
+  phoneNumber: {
+    type: String,
+    trim: true
+  },
+  customerBaseSize: {
+    type: Number
+  },
+  accountStatus: {
+    type: String,
+    enum: ['Active', 'Inactive', 'Suspended'],
+    default: 'Active'
+  },
+  preferences: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  stripeCustomerId: {
+    type: String
+  },
+  stripeSubscriptionId: {
+    type: String
+  },
+  subscriptionTier: {
+    type: String,
+    enum: ['basic', 'pro', 'enterprise', null],
+    default: null
+  },
+  subscriptionActive: {
+    type: Boolean,
+    default: false
+  },
+  lastLogin: {
+    type: Date
+  },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
+}, {
+  timestamps: true
 });
 
-// Password comparison method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw error;
+// Pre-save hook to hash password
+userSchema.pre('save', async function(next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 10);
   }
+  next();
+});
+
+// Method to compare password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Create index on email
-userSchema.index({ email: 1 }, { unique: true });
+// Method to check if subscription is active
+userSchema.methods.hasActiveSubscription = function() {
+  return this.subscriptionActive && this.subscriptionTier;
+};
 
-module.exports = mongoose.model('User', userSchema);
+// Method to get subscription details
+userSchema.methods.getSubscriptionDetails = function() {
+  if (!this.subscriptionActive) {
+    return null;
+  }
+  
+  return {
+    tier: this.subscriptionTier,
+    active: this.subscriptionActive,
+    customerId: this.stripeCustomerId,
+    subscriptionId: this.stripeSubscriptionId
+  };
+};
+
+// Create the model
+const User = mongoose.model('User', userSchema);
+
+// Export the model
+module.exports = User;
