@@ -3,16 +3,43 @@ const router = express.Router();
 const stripe = require('../utils/stripe');
 const auth = require('../middleware/auth');
 
+// Constants for product and price mapping
+const PRODUCTS = {
+  BASIC: {
+    id: 'prod_R2TeQ4r5iOH6CG',
+    priceId: 'price_1QAOgoE1a6rnB8cNdwUVro0S',
+    link: 'https://buy.stripe.com/00gaGf36G05W84EeUU'
+  },
+  PRO: {
+    id: 'prod_R2TfmQYMHxix1e',
+    priceId: 'price_1QAOhxE1a6rnB8cN0Ceo9AXM',
+    link: 'https://buy.stripe.com/28oaGf9v47yoacMaEF'
+  },
+  ENTERPRISE: {
+    id: 'prod_R2TgIYi0HUAYxf',
+    priceId: 'price_1QAOisE1a6rnB8cNlvqaNaAN',
+    link: 'https://buy.stripe.com/4gw29J7mWg4U98I002'
+  }
+};
+
+const TIER_MAP = {
+  [PRODUCTS.BASIC.id]: 'basic',
+  [PRODUCTS.PRO.id]: 'pro',
+  [PRODUCTS.ENTERPRISE.id]: 'enterprise'
+};
+
 // Get all prices/products
-router.get('/prices', async (req, res) => {
+router.get('/prices', auth, async (req, res) => {
   try {
+    const user = req.user;
+    
     const products = [
       {
-        id: 'prod_R2TeQ4r5iOH6CG',
+        id: PRODUCTS.BASIC.id,
         name: 'Basic',
         unit_amount: 4999,
         recurring: { interval: 'month' },
-        paymentLink: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
+        paymentLink: `${PRODUCTS.BASIC.link}?client_reference_id=${user?._id}&prefilled_email=${user?.email}`,
         features: [
           'Up to 50 customers',
           'Advanced scheduling',
@@ -23,11 +50,11 @@ router.get('/prices', async (req, res) => {
         ]
       },
       {
-        id: 'prod_R2TfmQYMHxix1e',
+        id: PRODUCTS.PRO.id,
         name: 'Pro',
         unit_amount: 9999,
         recurring: { interval: 'month' },
-        paymentLink: 'https://buy.stripe.com/28oaGf9v47yoacMaEF',
+        paymentLink: `${PRODUCTS.PRO.link}?client_reference_id=${user?._id}&prefilled_email=${user?.email}`,
         recommended: true,
         features: [
           'Unlimited customers',
@@ -40,11 +67,11 @@ router.get('/prices', async (req, res) => {
         ]
       },
       {
-        id: 'prod_R2TgIYi0HUAYxf',
+        id: PRODUCTS.ENTERPRISE.id,
         name: 'Enterprise',
         unit_amount: 19999,
         recurring: { interval: 'month' },
-        paymentLink: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
+        paymentLink: `${PRODUCTS.ENTERPRISE.link}?client_reference_id=${user?._id}&prefilled_email=${user?.email}`,
         features: [
           'Unlimited customers',
           'Advanced scheduling',
@@ -63,68 +90,14 @@ router.get('/prices', async (req, res) => {
   }
 });
 
-// Create a checkout session
-router.post('/create-checkout-session', auth, async (req, res) => {
-  try {
-    const { productId } = req.body;
-    const userId = req.user.id;
-
-    // Create customer if they don't exist
-    let customer;
-    if (!req.user.stripeCustomerId) {
-      customer = await stripe.customers.create({
-        email: req.user.email,
-        metadata: {
-          userId: userId
-        }
-      });
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      // Fixed URL string template literals
-      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&client_reference_id=${userId}`,
-      cancel_url: `${process.env.FRONTEND_URL}/pricing`,
-      client_reference_id: userId,
-      customer: customer?.id || req.user.stripeCustomerId,
-      customer_email: !customer?.id ? req.user.email : undefined,
-      line_items: [{
-        price: productId,
-        quantity: 1,
-      }],
-      metadata: {
-        userId: userId,
-        // Add subscription tier based on productId
-        subscriptionTier: getSubscriptionTierFromProductId(productId)
-      },
-      subscription_data: {
-        metadata: {
-          userId: userId
-        }
-      }
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
-  }
-});
-
-// Helper function to map product IDs to subscription tiers
-function getSubscriptionTierFromProductId(productId) {
-  const tierMap = {
-    'prod_R2TeQ4r5iOH6CG': 'basic',
-    'prod_R2TfmQYMHxix1e': 'pro',
-    'prod_R2TgIYi0HUAYxf': 'enterprise'
-  };
-  return tierMap[productId] || 'basic';
-}
 // Verify subscription status
 router.get('/subscription-status', auth, async (req, res) => {
   try {
+    console.log('Checking subscription status for user:', req.user._id);
+    
     const user = req.user;
     if (!user.stripeSubscriptionId) {
+      console.log('No subscription ID found');
       return res.json({
         active: false,
         tier: null
@@ -132,8 +105,10 @@ router.get('/subscription-status', auth, async (req, res) => {
     }
 
     const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+    console.log('Retrieved subscription:', subscription.id);
+
     res.json({
-      active: subscription.status === 'active',
+      active: subscription.status === 'active' || subscription.status === 'trialing',
       currentPeriodEnd: subscription.current_period_end,
       tier: user.subscriptionTier,
       status: subscription.status
@@ -141,6 +116,44 @@ router.get('/subscription-status', auth, async (req, res) => {
   } catch (error) {
     console.error('Error checking subscription status:', error);
     res.status(500).json({ error: 'Failed to check subscription status' });
+  }
+});
+
+// Add session verification endpoint
+router.post('/verify-session', auth, async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    console.log('Verifying session:', sessionId);
+
+    // Retrieve the session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    console.log('Retrieved session:', session.id);
+    
+    // Get subscription if available
+    let subscription;
+    if (session.subscription) {
+      subscription = await stripe.subscriptions.retrieve(session.subscription);
+      console.log('Subscription status:', subscription.status);
+    }
+
+    res.json({
+      success: true,
+      session: {
+        id: session.id,
+        status: session.payment_status,
+        subscriptionStatus: subscription?.status,
+        customerId: session.customer,
+        subscriptionId: session.subscription
+      }
+    });
+  } catch (err) {
+    console.error('Session verification error:', err);
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -163,52 +176,6 @@ router.post('/cancel-subscription', auth, async (req, res) => {
   } catch (error) {
     console.error('Error canceling subscription:', error);
     res.status(500).json({ error: 'Failed to cancel subscription' });
-  }
-});
-
-// Add this to your existing payment routes
-router.post('/verify-session', auth, async (req, res) => {
-  try {
-    const { sessionId, clientReferenceId, email } = req.body;
-    
-    if (!sessionId) {
-      return res.status(400).json({ error: 'Session ID is required' });
-    }
-
-    // Retrieve the session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    
-    // If we have a client reference ID, verify it matches
-    if (clientReferenceId && session.client_reference_id && 
-        session.client_reference_id !== clientReferenceId) {
-      return res.status(403).json({ error: 'Invalid client reference' });
-    }
-
-    // If we have an email, verify it matches
-    if (email && session.customer_email && 
-        session.customer_email !== email) {
-      return res.status(403).json({ error: 'Invalid email' });
-    }
-
-    // Get subscription status if available
-    let subscription;
-    if (session.subscription) {
-      subscription = await stripe.subscriptions.retrieve(session.subscription);
-    }
-
-    res.json({
-      success: true,
-      session: {
-        id: session.id,
-        status: session.payment_status,
-        subscriptionStatus: subscription?.status,
-        customerId: session.customer,
-        subscriptionId: session.subscription
-      }
-    });
-  } catch (err) {
-    console.error('Session verification error:', err);
-    res.status(400).json({ error: err.message });
   }
 });
 

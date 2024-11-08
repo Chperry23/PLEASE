@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import Alert from './Alert';
 
 const SignIn = () => {
@@ -10,6 +10,17 @@ const SignIn = () => {
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Show success message from payment if it exists
+  useEffect(() => {
+    if (location.state?.message) {
+      setAlert({
+        type: 'success',
+        message: location.state.message
+      });
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,11 +28,21 @@ const SignIn = () => {
     setAlert(null);
 
     try {
+      console.log('Login attempt:', { email });
       const response = await login(email, password);
+      console.log('Login response:', response);
+
+      // Add delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       if (!response.user.subscriptionTier) {
-        navigate('/pricing');
-      } else if (!response.user.customerBaseSize) {
-        navigate('/complete-profile');
+        navigate('/pricing', {
+          state: { message: 'Please select a subscription plan to continue.' }
+        });
+      } else if (!response.user.phoneNumber || !response.user.customerBaseSize) {
+        navigate('/complete-profile', {
+          state: { message: 'Please complete your profile to continue.' }
+        });
       } else {
         navigate('/dashboard');
       }
@@ -29,7 +50,7 @@ const SignIn = () => {
       console.error('Login error:', error);
       setAlert({
         type: 'error',
-        message: 'Failed to sign in. Please check your credentials.'
+        message: error.message || 'Invalid credentials. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -37,7 +58,7 @@ const SignIn = () => {
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
+    window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
   };
 
   return (
@@ -97,8 +118,15 @@ const SignIn = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
+              {loading ? (
+                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-opacity-20 rounded-full border-t-white"></div>
+                </span>
+              ) : null}
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>

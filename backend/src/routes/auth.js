@@ -4,7 +4,7 @@ const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
 const bcrypt = require('bcryptjs');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require('../utils/stripe');
 
 // Test route
 router.get('/test', (req, res) => {
@@ -33,11 +33,21 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create new user
+    // Create Stripe customer first
+    const stripeCustomer = await stripe.customers.create({
+      email: email,
+      name: name,
+      metadata: {
+        registrationSource: 'web'
+      }
+    });
+
+    // Create new user with Stripe customer ID
     const user = new User({
       name,
       email,
-      password: await bcrypt.hash(password, 10)
+      password: await bcrypt.hash(password, 10),
+      stripeCustomerId: stripeCustomer.id
     });
     
     await user.save();
@@ -57,6 +67,7 @@ router.post('/register', async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        stripeCustomerId: user.stripeCustomerId,
         subscriptionTier: user.subscriptionTier,
         subscriptionActive: user.subscriptionActive
       },
@@ -200,6 +211,21 @@ router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/signin' }),
   async (req, res) => {
     try {
+      // Create Stripe customer for Google OAuth users if they don't have one
+      if (!req.user.stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          email: req.user.email,
+          name: req.user.name,
+          metadata: {
+            registrationSource: 'google_oauth'
+          }
+        });
+        
+        await User.findByIdAndUpdate(req.user._id, {
+          stripeCustomerId: stripeCustomer.id
+        });
+      }
+
       const token = jwt.sign(
         { id: req.user._id },
         process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',

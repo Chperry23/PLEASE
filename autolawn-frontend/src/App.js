@@ -2,18 +2,29 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Public Pages
 import Home from './pages/Home';
-import SignIn from './components/SignIn';
-import Register from './components/Register';
-import Dashboard from './components/Dashboard';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
 import Contact from './pages/Contact';
-import ProtectedRoute from './components/ProtectedRoute';
+import About from './pages/About';
+import PublicProfile  from './pages/PublicProfile';
+
+// Auth Pages
+import SignIn from './components/SignIn';
+import Register from './components/Register';
+import OAuthSuccess from './pages/OAuthSuccess';
+import LoginSuccess from './components/LoginSuccess';
+import PaymentSuccess from './pages/PaymentSuccess';
+import CompleteProfile from './components/CompleteProfile';
+
+// Protected Pages
+import Dashboard from './components/Dashboard';
 import Jobs from './pages/Jobs';
 import Customers from './pages/Customers';
 import ManageJobs from './pages/ManageJobs';
-import LoginSuccess from './components/LoginSuccess';
 import ManageCustomers from './pages/ManageCustomers';
 import Profile from './pages/Profile';
 import ManageEmployees from './pages/ManageEmployees';
@@ -23,10 +34,6 @@ import BuildRoutes from './pages/BuildRoutes';
 import RouteAssignments from './pages/RouteAssignments';
 import RouteMap from './pages/RouteMap';
 import SendNotifications from './pages/SendNotifications';
-import CompleteProfile from './components/CompleteProfile';
-import About from './pages/About';
-import OAuthSuccess from './pages/OAuthSuccess';
-import PaymentSuccess from './pages/PaymentSuccess';
 
 function App() {
   return (
@@ -34,124 +41,114 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
-            {/* Public Routes */}
+            {/* Public Routes - No auth required */}
             <Route path="/" element={<Home />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/profile" element={<PublicProfile />} />
+
+            {/* Auth Routes - Special handling for auth flow */}
             <Route path="/signin" element={<SignIn />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/features" element={<Features />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/login-success" element={<LoginSuccess />} />
-            <Route path="/complete-profile" element={<CompleteProfile />} />
-            <Route path="/about" element={<About />} />
             <Route path="/oauth-success" element={<OAuthSuccess />} />
-            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/login-success" element={<LoginSuccess />} />
             
-            {/* Protected Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/route-assignments"
-              element={
-                <ProtectedRoute>
-                  <RouteAssignments />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/jobs"
-              element={
-                <ProtectedRoute>
-                  <Jobs />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/customers"
-              element={
-                <ProtectedRoute>
-                  <Customers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/manage-jobs"
-              element={
-                <ProtectedRoute>
-                  <ManageJobs />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/manage-customers"
-              element={
-                <ProtectedRoute>
-                  <ManageCustomers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/manage-employees"
-              element={
-                <ProtectedRoute>
-                  <ManageEmployees />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/add-employee"
-              element={
-                <ProtectedRoute>
-                  <Employee />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/send-notifications"
-              element={
-                <ProtectedRoute>
-                  <SendNotifications />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/quote-tool"
-              element={
-                <ProtectedRoute>
-                  <QuoteTool />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/build-routes"
-              element={
-                <ProtectedRoute>
-                  <BuildRoutes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/route-map"
-              element={
-                <ProtectedRoute>
-                  <RouteMap />
-                </ProtectedRoute>
-              }
-            />
+            {/* Semi-protected Routes - Require auth but not subscription */}
+            <Route path="/pricing" element={
+              <ProtectedRoute requireSubscription={false} requireProfileCompletion={false}>
+                <Pricing />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/payment-success" element={
+              <ProtectedRoute requireSubscription={false} requireProfileCompletion={false}>
+                <PaymentSuccess />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/complete-profile" element={
+              <ProtectedRoute requireSubscription={true} requireProfileCompletion={false}>
+                <CompleteProfile />
+              </ProtectedRoute>
+            } />
+
+            {/* Fully Protected Routes - Require auth, subscription, and profile completion */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* Route Management */}
+            <Route path="/route-assignments" element={
+              <ProtectedRoute>
+                <RouteAssignments />
+              </ProtectedRoute>
+            } />
+            <Route path="/build-routes" element={
+              <ProtectedRoute>
+                <BuildRoutes />
+              </ProtectedRoute>
+            } />
+            <Route path="/route-map" element={
+              <ProtectedRoute>
+                <RouteMap />
+              </ProtectedRoute>
+            } />
+
+            {/* Job Management */}
+            <Route path="/jobs" element={
+              <ProtectedRoute>
+                <Jobs />
+              </ProtectedRoute>
+            } />
+            <Route path="/manage-jobs" element={
+              <ProtectedRoute>
+                <ManageJobs />
+              </ProtectedRoute>
+            } />
+            <Route path="/quote-tool" element={
+              <ProtectedRoute>
+                <QuoteTool />
+              </ProtectedRoute>
+            } />
+
+            {/* Customer Management */}
+            <Route path="/customers" element={
+              <ProtectedRoute>
+                <Customers />
+              </ProtectedRoute>
+            } />
+            <Route path="/manage-customers" element={
+              <ProtectedRoute>
+                <ManageCustomers />
+              </ProtectedRoute>
+            } />
+
+            {/* Employee Management */}
+            <Route path="/manage-employees" element={
+              <ProtectedRoute>
+                <ManageEmployees />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-employee" element={
+              <ProtectedRoute>
+                <Employee />
+              </ProtectedRoute>
+            } />
+
+            {/* User & Notifications */}
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/send-notifications" element={
+              <ProtectedRoute>
+                <SendNotifications />
+              </ProtectedRoute>
+            } />
           </Routes>
         </div>
       </Router>
