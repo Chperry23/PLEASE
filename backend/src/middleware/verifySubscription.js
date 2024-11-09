@@ -1,19 +1,17 @@
-// backend/src/middleware/verifySubscription.js
-
-const User = require('../models/user');
+// src/middleware/verifySubscription.js
 
 const verifySubscription = (requiredTier) => {
   return async (req, res, next) => {
     try {
-      const user = await User.findById(req.user.id);
+      const user = req.user;
       
       if (!user) {
         return res.status(401).json({ error: 'Unauthorized. User not found.' });
       }
 
-      const tiers = ['Basic', 'Pro', 'Enterprise'];
-      const userTierIndex = tiers.indexOf(user.subscriptionTier);
-      const requiredTierIndex = tiers.indexOf(requiredTier);
+      const tiers = ['basic', 'pro', 'enterprise'];
+      const userTierIndex = tiers.indexOf(user.subscriptionTier?.toLowerCase());
+      const requiredTierIndex = tiers.indexOf(requiredTier.toLowerCase());
       
       if (requiredTierIndex === -1) {
         return res.status(500).json({ error: 'Server error. Invalid required tier.' });

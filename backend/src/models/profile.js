@@ -54,7 +54,6 @@ const profileSchema = new mongoose.Schema({
   subscriptionTier: {
     type: String,
     enum: ['Basic', 'Pro', 'Enterprise'], 
-    default: null, // Set default to null
   },
   subscriptionActive: {
     type: Boolean,

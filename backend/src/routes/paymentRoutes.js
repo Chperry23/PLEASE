@@ -120,18 +120,28 @@ router.get('/subscription-status', auth, async (req, res) => {
 });
 
 // Add session verification endpoint
+// Add session verification endpoint
 router.post('/verify-session', auth, async (req, res) => {
   try {
-    const { sessionId } = req.body;
+    const { clientReferenceId } = req.body;
     
-    if (!sessionId) {
-      return res.status(400).json({ error: 'Session ID is required' });
+    if (!clientReferenceId) {
+      return res.status(400).json({ error: 'Client Reference ID is required' });
     }
 
-    console.log('Verifying session:', sessionId);
+    console.log('Verifying session with client_reference_id:', clientReferenceId);
 
-    // Retrieve the session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // Retrieve all sessions for the customer
+    const sessions = await stripe.checkout.sessions.list({
+      client_reference_id: clientReferenceId,
+      limit: 1, // Assuming you want the most recent session
+    });
+
+    if (!sessions.data.length) {
+      return res.status(404).json({ error: 'No sessions found for this client reference ID' });
+    }
+
+    const session = sessions.data[0];
     console.log('Retrieved session:', session.id);
     
     // Get subscription if available
@@ -141,6 +151,13 @@ router.post('/verify-session', auth, async (req, res) => {
       console.log('Subscription status:', subscription.status);
     }
 
+    // Update user's subscription status in the database
+    const user = await User.findByIdAndUpdate(clientReferenceId, {
+      stripeSubscriptionId: subscription.id,
+      subscriptionTier: getTierFromPriceId(session.metadata.price_id),
+      subscriptionActive: true,
+    }, { new: true });
+
     res.json({
       success: true,
       session: {
@@ -148,8 +165,9 @@ router.post('/verify-session', auth, async (req, res) => {
         status: session.payment_status,
         subscriptionStatus: subscription?.status,
         customerId: session.customer,
-        subscriptionId: session.subscription
-      }
+        subscriptionId: session.subscription,
+      },
+      user,
     });
   } catch (err) {
     console.error('Session verification error:', err);

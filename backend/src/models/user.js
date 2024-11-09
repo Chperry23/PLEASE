@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['Admin', 'Employee', 'Manager'],
-    default: 'Employee'
+    default: 'Admin'
   },
   phoneNumber: {
     type: String,
@@ -48,8 +48,8 @@ const userSchema = new mongoose.Schema({
   },
   subscriptionTier: {
     type: String,
-    enum: ['basic', 'pro', 'enterprise', null],
-    default: null
+    enum: ['basic', 'pro', 'enterprise'], // Remove null from enum array
+    required: false
   },
   subscriptionActive: {
     type: Boolean,

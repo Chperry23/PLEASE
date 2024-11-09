@@ -1,3 +1,5 @@
+// src/routes/auth.js
+
 const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
@@ -5,11 +7,7 @@ const jwt = require('jsonwebtoken');
 const passport = require('passport');
 const bcrypt = require('bcryptjs');
 const stripe = require('../utils/stripe');
-
-// Test route
-router.get('/test', (req, res) => {
-  res.json({ message: 'Auth routes working!' });
-});
+const verifyToken = require('../middleware/auth'); // Import the auth middleware
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -33,7 +31,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create Stripe customer first
+    // Create Stripe customer
     const stripeCustomer = await stripe.customers.create({
       email: email,
       name: name,
@@ -42,40 +40,51 @@ router.post('/register', async (req, res) => {
       }
     });
 
-    // Create new user with Stripe customer ID
+    // Create new user (password will be hashed in the pre-save hook)
     const user = new User({
       name,
       email,
-      password: await bcrypt.hash(password, 10),
+      password,
       stripeCustomerId: stripeCustomer.id
     });
-    
+
     await user.save();
     console.log('User created successfully:', user._id);
 
     // Create JWT token
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
-    // Return success with user data
+// auth.js
+
+    // When setting the token cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Will be true now
+      sameSite: 'None', // Allows cross-site cookies
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+
+    // Return success with user data (without the token)
     res.status(201).json({
-      token,
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         stripeCustomerId: user.stripeCustomerId,
         subscriptionTier: user.subscriptionTier,
-        subscriptionActive: user.subscriptionActive
+        subscriptionActive: user.subscriptionActive,
+        needsSubscription: true
       },
       message: 'Registration successful'
     });
   } catch (error) {
     console.error('Registration error:', error);
-    
+
     if (error.code === 11000) {
       return res.status(400).json({
         message: 'Email already exists'
@@ -101,23 +110,31 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     // Find user and include password for verification
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      console.log(`User not found with email: ${email}`);
+      return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      console.log(`Password mismatch for user: ${email}`);
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    // **New Code: Check Subscription Status**
+    if (!user.subscriptionTier || !user.subscriptionActive) {
+      console.log(`User ${email} attempted to log in without an active subscription.`);
+      return res.status(403).json({ message: 'Access denied. Please subscribe to access your account.' });
     }
 
     // Create token
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -125,28 +142,25 @@ router.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Check subscription status
-    if (!user.subscriptionTier || !user.subscriptionActive) {
-      return res.json({
-        token,
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          requiresSubscription: true
-        },
-        redirectTo: '/pricing'
-      });
-    }
+    // Set token as HTTP-only cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      sameSite: 'None',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
 
+    // Return user object (without the needsSubscription flag)
     res.json({
-      token,
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         subscriptionTier: user.subscriptionTier,
-        subscriptionActive: user.subscriptionActive
+        subscriptionActive: user.subscriptionActive,
+        phoneNumber: user.phoneNumber,
+        customerBaseSize: user.customerBaseSize,
+        needsProfile: !user.phoneNumber || !user.customerBaseSize
       }
     });
   } catch (error) {
@@ -156,32 +170,17 @@ router.post('/login', async (req, res) => {
 });
 
 // Verify token endpoint
-router.get('/verify', async (req, res) => {
+router.get('/verify', verifyToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA');
-    const user = await User.findById(decoded.id);
+    const user = req.user;
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Check if subscription is required
-    if (!user.subscriptionTier || !user.subscriptionActive) {
-      return res.json({
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          requiresSubscription: true
-        },
-        redirectTo: '/pricing'
-      });
-    }
+    // Determine if user needs subscription or profile completion
+    const needsSubscription = !user.subscriptionTier || !user.subscriptionActive;
+    const needsProfile = !user.phoneNumber || !user.customerBaseSize;
 
     res.json({
       user: {
@@ -189,13 +188,27 @@ router.get('/verify', async (req, res) => {
         name: user.name,
         email: user.email,
         subscriptionTier: user.subscriptionTier,
-        subscriptionActive: user.subscriptionActive
+        subscriptionActive: user.subscriptionActive,
+        phoneNumber: user.phoneNumber,
+        customerBaseSize: user.customerBaseSize,
+        needsSubscription,
+        needsProfile
       }
     });
   } catch (error) {
     console.error('Token verification error:', error);
     res.status(401).json({ message: 'Invalid token' });
   }
+});
+
+// Logout endpoint
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'None',
+  });
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Google OAuth routes
@@ -211,7 +224,7 @@ router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/signin' }),
   async (req, res) => {
     try {
-      // Create Stripe customer for Google OAuth users if they don't have one
+      // Create Stripe customer if not exists
       if (!req.user.stripeCustomerId) {
         const stripeCustomer = await stripe.customers.create({
           email: req.user.email,
@@ -220,7 +233,7 @@ router.get('/google/callback',
             registrationSource: 'google_oauth'
           }
         });
-        
+
         await User.findByIdAndUpdate(req.user._id, {
           stripeCustomerId: stripeCustomer.id
         });
@@ -228,17 +241,24 @@ router.get('/google/callback',
 
       const token = jwt.sign(
         { id: req.user._id },
-        process.env.JWT_SECRET || 'ObUfi3Q7Vm4ja752sqUzGwVjSnbyjVduC2SuRp5ozzA',
+        process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );
 
-      // Check if user has subscription
-      const user = await User.findById(req.user._id);
-      if (!user.subscriptionTier || !user.subscriptionActive) {
-        return res.redirect(`${process.env.FRONTEND_URL}/pricing?token=${token}`);
-      }
+      // Set token as HTTP-only cookie
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'None',
+        maxAge: 24 * 60 * 60 * 1000 // 1 day
+      });
 
-      res.redirect(`${process.env.FRONTEND_URL}/oauth-success?token=${token}`);
+      // Determine user status
+      const needsSubscription = !req.user.subscriptionTier || !req.user.subscriptionActive;
+      const needsProfile = !req.user.phoneNumber || !req.user.customerBaseSize;
+
+      // Redirect to frontend without token in URL
+      res.redirect(`${process.env.FRONTEND_URL}/oauth-success?needsSubscription=${needsSubscription}&needsProfile=${needsProfile}`);
     } catch (error) {
       console.error('OAuth callback error:', error);
       res.redirect(`${process.env.FRONTEND_URL}/signin?error=oauth_failed`);

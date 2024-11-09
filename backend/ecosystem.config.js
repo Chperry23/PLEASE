@@ -1,6 +1,3 @@
-const dotenv = require('dotenv');
-const path = require('path');
-
 // Load environment variables from .env file
 console.log('Loading environment variables...');
 console.log('Current directory:', __dirname);

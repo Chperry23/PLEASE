@@ -33,9 +33,13 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   const { bio, address, name, email, businessName, businessPhone, businessWebsite, businessAddress } = req.body;
 
-  console.log('Received data:', { bio, address, name, email, businessName, businessPhone, businessWebsite, businessAddress });
+  console.log('Received data:', req.body);
 
   try {
+    // **Add the code here to prevent modification of subscription fields**
+    delete req.body.subscriptionTier;
+    delete req.body.subscriptionActive;
+
     let profile = await Profile.findOne({ user: req.user._id });
     let user = await User.findById(req.user._id);
 
@@ -49,14 +53,14 @@ exports.updateProfile = async (req, res) => {
 
     // Update profile fields
     profile.bio = bio || profile.bio;
-    
+
     // Handle address update safely
     if (address) {
       profile.address = {
-        street: address.street || '',
-        city: address.city || '',
-        state: address.state || '',
-        zipCode: address.zipCode || ''
+        street: address.street || profile.address.street || '',
+        city: address.city || profile.address.city || '',
+        state: address.state || profile.address.state || '',
+        zipCode: address.zipCode || profile.address.zipCode || '',
       };
     }
 
@@ -94,6 +98,7 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ error: 'Server error.', details: error.message });
   }
 };
+
 
 exports.updateProgress = async (req, res) => {
     const { customersAdded, jobsCompleted, revenueEarned, routesCreated } = req.body;
