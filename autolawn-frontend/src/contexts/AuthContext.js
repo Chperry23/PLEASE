@@ -1,4 +1,3 @@
-```javascript
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from '../utils/axiosInstance';
 
@@ -15,17 +14,17 @@ export const AuthProvider = ({ children }) => {
       console.log('Sending registration request:', userData);
       const response = await axios.post('/auth/register', userData);
       console.log('Registration response:', response.data);
-      
+
       const { token, user } = response.data;
-      
-      // Store token but only set user if they have a subscription
+
+      // Store token and set user
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
       setUser(user);
-      return { 
+
+      return {
         ...response.data,
-        needsSubscription: !user.subscriptionTier 
+        needsSubscription: !user.subscriptionTier,
       };
     } catch (error) {
       console.error('Registration error:', error.response?.data || error.message);
@@ -39,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Login attempt:', { email });
       const response = await axios.post('/api/auth/login', { email, password });
       console.log('Login response:', response.data);
-    
+
       const { token, user } = response.data;
       if (!token || !user) {
         throw new Error('Invalid server response');
@@ -52,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       return {
         ...response.data,
         needsSubscription: !user.subscriptionTier,
-        needsProfile: !user.phoneNumber || !user.customerBaseSize
+        needsProfile: !user.phoneNumber || !user.customerBaseSize,
       };
     } catch (error) {
       console.error('Login error:', error.response?.data || error);
@@ -65,7 +64,6 @@ export const AuthProvider = ({ children }) => {
 
   // Google OAuth login
   const loginWithGoogle = () => {
-    // Store current path for redirect after OAuth
     sessionStorage.setItem('redirectPath', window.location.pathname);
     window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
   };
@@ -76,19 +74,18 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         throw new Error('No token provided');
       }
-      localStorage.setItem('token');
+      localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const userData = await verifyToken();
-      
-      // Get redirect path if stored
+
       const redirectPath = sessionStorage.getItem('redirectPath');
       sessionStorage.removeItem('redirectPath');
-      
+
       return {
         user: userData,
         redirectPath,
         needsSubscription: !userData.subscriptionTier,
-        needsProfile: !userData.phoneNumber || !userData.customerBaseSize
+        needsProfile: !userData.phoneNumber || !userData.customerBaseSize,
       };
     } catch (error) {
       console.error('OAuth success handling error:', error);
@@ -118,7 +115,7 @@ export const AuthProvider = ({ children }) => {
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const response = await axios.get('/api/user');
-    
+
       if (!response.data) {
         throw new Error('No user data received');
       }
@@ -145,7 +142,7 @@ export const AuthProvider = ({ children }) => {
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const response = await axios.get('/api/auth/verify');
-      
+
       if (!response.data?.user) {
         throw new Error('Invalid token response');
       }
@@ -164,32 +161,31 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Check access status
-  const checkAccess = useCallback(() => {
-    return {
-      isAuthenticated: !!user,
-      hasSubscription: !!user?.subscriptionTier,
-      isProfileComplete: !!(user?.phoneNumber && user?.customerBaseSize),
-      requiresAction: user ? (
-        !user.subscriptionTier ? 'subscription' :
-        !user.phoneNumber ? 'profile' :
-        null
-      ) : 'auth',
-      subscriptionTier: user?.subscriptionTier || null,
-      isSubscriptionActive: user?.subscriptionActive || false
-    };
-  }, [user]);
+  const checkAccess = useCallback(() => ({
+    isAuthenticated: !!user,
+    hasSubscription: !!user?.subscriptionTier,
+    isProfileComplete: !!(user?.phoneNumber && user?.customerBaseSize),
+    requiresAction: user
+      ? !user.subscriptionTier
+        ? 'subscription'
+        : !user.phoneNumber
+        ? 'profile'
+        : null
+      : 'auth',
+    subscriptionTier: user?.subscriptionTier || null,
+    isSubscriptionActive: user?.subscriptionActive || false,
+  }), [user]);
 
   // Check subscription status
   const checkSubscription = async () => {
     try {
       const response = await axios.get('/api/payment/subscription-status');
       const { active, tier } = response.data;
-      
-      // Update user data with latest subscription info
-      setUser(prev => ({
+
+      setUser((prev) => ({
         ...prev,
         subscriptionActive: active,
-        subscriptionTier: tier
+        subscriptionTier: tier,
       }));
 
       return response.data;
@@ -226,7 +222,7 @@ export const AuthProvider = ({ children }) => {
     checkAccess,
     checkSubscription,
     verifyToken,
-    setError
+    setError,
   };
 
   return (
@@ -245,4 +241,3 @@ export const useAuth = () => {
 };
 
 export default AuthProvider;
-```

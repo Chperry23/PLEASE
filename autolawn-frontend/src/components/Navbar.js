@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const hasSubscription = user && user.subscriptionTier;
   const location = useLocation();
 
   // Determine if we're on an auth page

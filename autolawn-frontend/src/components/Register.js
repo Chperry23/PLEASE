@@ -85,10 +85,14 @@ const Register = () => {
         
         // Add required parameters
         url.searchParams.append('client_reference_id', response.user._id);
-        url.searchParams.append('success_url', 
-          ${window.location.origin}/payment-success?client_reference_id=${response.user._id});
-        url.searchParams.append('cancel_url', ${window.location.origin}/pricing);
-        
+	url.searchParams.append(
+  	     'success_url',
+  	     `${window.location.origin}/payment-success?client_reference_id=${response.user._id}`
+	);
+	url.searchParams.append(
+ 	     'cancel_url',
+  	     `${window.location.origin}/pricing`
+	);        
         // Store user data for verification
         localStorage.setItem('pendingUserId', response.user._id);
         localStorage.setItem('pendingUserEmail', response.user.email);
@@ -236,3 +240,5 @@ const Register = () => {
     </div>
   );
 };
+
+export default Register;

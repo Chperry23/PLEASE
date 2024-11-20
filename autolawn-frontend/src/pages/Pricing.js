@@ -1,8 +1,14 @@
-import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+// Pricing component file
+
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import { FaCheck, FaTimes } from 'react-icons/fa';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with your publishable key (ensure this is stored securely)
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 const tiers = [
   {
@@ -10,7 +16,7 @@ const tiers = [
     price: '49.99',
     interval: 'month',
     productId: 'prod_R2TeQ4r5iOH6CG',
-    paymentLink: 'https://buy.stripe.com/00gaGf36G05W84EeUU',
+    priceId: 'price_1QAOgoE1a6rnB8cNdwUVro0S', // Replace paymentLink with priceId
     features: [
       { text: 'Up to 50 customers', included: true },
       { text: 'Advanced scheduling', included: true },
@@ -20,14 +26,14 @@ const tiers = [
       { text: 'Basic analytics', included: true },
       { text: 'Team management', included: false },
     ],
-    recommended: false
+    recommended: false,
   },
   {
     name: 'Pro',
     price: '99.99',
     interval: 'month',
     productId: 'prod_R2TfmQYMHxix1e',
-    paymentLink: 'https://buy.stripe.com/28oaGf9v47yoacMaEF',
+    priceId: 'price_1QAOhxE1a6rnB8cN0Ceo9AXM', // Replace paymentLink with priceId
     features: [
       { text: 'Unlimited customers', included: true },
       { text: 'Advanced scheduling', included: true },
@@ -37,14 +43,14 @@ const tiers = [
       { text: 'Advanced analytics', included: true },
       { text: 'Team management', included: true },
     ],
-    recommended: true
+    recommended: true,
   },
   {
     name: 'Enterprise',
     price: '199.99',
     interval: 'month',
     productId: 'prod_R2TgIYi0HUAYxf',
-    paymentLink: 'https://buy.stripe.com/4gw29J7mWg4U98I002',
+    priceId: 'price_1QAOisE1a6rnB8cNlvqaNaAN', // Replace paymentLink with priceId
     features: [
       { text: 'Unlimited customers', included: true },
       { text: 'Advanced scheduling', included: true },
@@ -54,12 +60,16 @@ const tiers = [
       { text: 'Custom analytics', included: true },
       { text: 'Advanced team management', included: true },
     ],
-    recommended: false
-  }
+    recommended: false,
+  },
 ];
 
-const PricingTier = ({ tier, onSelect, selected }) => (
-  <div className={`bg-surface p-6 rounded-lg shadow-md ${tier.recommended ? 'border-2 border-primary' : ''}`}>
+const PricingTier = ({ tier, onSelect }) => (
+  <div
+    className={`bg-surface p-6 rounded-lg shadow-md ${
+      tier.recommended ? 'border-2 border-primary' : ''
+    }`}
+  >
     {tier.recommended && (
       <span className="bg-primary text-white px-2 py-1 rounded-full text-sm font-semibold mb-2 inline-block">
         Recommended
@@ -86,11 +96,11 @@ const PricingTier = ({ tier, onSelect, selected }) => (
     </ul>
     <button
       onClick={() => onSelect(tier)}
-      className={`w-full py-2 px-4 rounded font-semibold transition-colors
-        ${tier.recommended 
-          ? 'bg-primary text-white hover:bg-primary-dark' 
+      className={`w-full py-2 px-4 rounded font-semibold transition-colors ${
+        tier.recommended
+          ? 'bg-primary text-white hover:bg-primary-dark'
           : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-        }`}
+      }`}
     >
       Select Plan
     </button>
@@ -100,7 +110,28 @@ const PricingTier = ({ tier, onSelect, selected }) => (
 const Pricing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+
+  // Function to create a checkout session
+  const createCheckoutSession = async (priceId) => {
+    try {
+      const response = await fetch('/api/payment/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies if using cookie-based auth
+        body: JSON.stringify({ priceId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+      return data.sessionId;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      throw error;
+    }
+  };
 
   const handleTierSelect = async (tier) => {
     try {
@@ -112,14 +143,19 @@ const Pricing = () => {
         return;
       }
 
-      // Append client_reference_id to payment link
-      const url = new URL(tier.paymentLink);
-      url.searchParams.append('client_reference_id', user.id);
-      url.searchParams.append('success_url', `${window.location.origin}/payment-success`);
-      url.searchParams.append('cancel_url', `${window.location.origin}/pricing`);
+      // Initialize Stripe.js
+      const stripe = await stripePromise;
 
-      // Redirect to Stripe checkout
-      window.location.href = url.toString();
+      // Create a Checkout Session
+      const sessionId = await createCheckoutSession(tier.priceId);
+
+      // Redirect to Stripe Checkout
+      const result = await stripe.redirectToCheckout({ sessionId });
+
+      if (result.error) {
+        // Display error to the user
+        console.error(result.error.message);
+      }
     } catch (error) {
       console.error('Error selecting tier:', error);
     }
@@ -140,17 +176,16 @@ const Pricing = () => {
 
         <div className="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0">
           {tiers.map((tier) => (
-            <PricingTier
-              key={tier.name}
-              tier={tier}
-              onSelect={handleTierSelect}
-            />
+            <PricingTier key={tier.name} tier={tier} onSelect={handleTierSelect} />
           ))}
         </div>
 
         <div className="mt-16 text-center">
           <p className="text-base text-gray-500">
-            Need help choosing? <a href="/contact" className="text-primary hover:text-primary-dark">Contact our sales team</a>
+            Need help choosing?{' '}
+            <a href="/contact" className="text-primary hover:text-primary-dark">
+              Contact our sales team
+            </a>
           </p>
         </div>
       </main>
