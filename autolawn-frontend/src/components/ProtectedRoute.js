@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute = ({ 
   children, 
-  requireSubscription = true,
-  requireProfileCompletion = true 
+  requireSubscription = true
 }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -40,28 +39,6 @@ const ProtectedRoute = ({
       state={{ 
         from: location,
         message: "A subscription is required to access this feature"
-      }} 
-      replace 
-    />;
-  }
-
-  // Profile completion check
-  const needsProfileCompletion = requireProfileCompletion && 
-    (!user.phoneNumber || !user.customerBaseSize);
-  
-  const skipProfileCompletion = [
-    '/complete-profile',
-    '/pricing',
-    '/payment-success',
-    '/subscription'
-  ].includes(location.pathname);
-
-  if (needsProfileCompletion && !skipProfileCompletion) {
-    return <Navigate 
-      to="/complete-profile" 
-      state={{ 
-        from: location,
-        message: "Please complete your profile to continue"
       }} 
       replace 
     />;

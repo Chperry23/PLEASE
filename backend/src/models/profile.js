@@ -1,13 +1,5 @@
-// backend/src/models/Profile.js
-
+// Profile.js
 const mongoose = require('mongoose');
-
-const serviceSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: String,
-  price: { type: Number },
-  duration: Number
-});
 
 const profileSchema = new mongoose.Schema({
   user: {
@@ -16,63 +8,20 @@ const profileSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  bio: {
-    type: String,
-    maxlength: 500,
-    default: '',
+  businessInfo: {
+    name: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    website: { type: String, default: '' },
+    address: { type: String, default: '' },
   },
-  address: {
-    street: { type: String, default: '' },
-    city: { type: String, default: '' },
-    state: { type: String, default: '' },
-    zipCode: { type: String, default: '' },
-  },
-  badges: [{
-    name: String,
-    description: String,
-    dateEarned: Date,
-  }],
-  progress: {
-    customersAdded: { type: Number, default: 0 },
-    jobsCompleted: { type: Number, default: 0 },
-    revenueEarned: { type: Number, default: 0 },
-    routesCreated: { type: Number, default: 0 },
-  },
-  level: { type: Number, default: 1 },
-  experience: { type: Number, default: 0 },
-  setupSteps: {
-    profileCompleted: { type: Boolean, default: false },
-    firstCustomerAdded: { type: Boolean, default: false },
-    firstJobCreated: { type: Boolean, default: false },
-    firstRouteCreated: { type: Boolean, default: false },
-  },
-  achievements: {
-    type: Map,
-    of: Number,
-    default: {}
-  },
-  subscriptionTier: {
-    type: String,
-    enum: ['Basic', 'Pro', 'Enterprise'], 
-  },
-  subscriptionActive: {
-    type: Boolean,
-    default: false,
-  },
-  stripeCustomerId: {
-    type: String,
-    default: '',
-  },
-  stripeSubscriptionId: {
-    type: String,
-    default: '',
-  },
-  cancellationRequested: {
-    type: Boolean,
-    default: false,
-  },
-  subscriptionEndDate: Date,
-  services: [serviceSchema],
+  services: [
+    {
+      name: { type: String },
+      description: { type: String },
+      price: { type: Number },
+      duration: { type: Number },
+    },
+  ],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Profile', profileSchema);

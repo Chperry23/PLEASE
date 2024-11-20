@@ -17,7 +17,6 @@ export const AuthProvider = ({ children }) => {
 
       const { token, user } = response.data;
 
-      // Store token and set user
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
@@ -51,7 +50,6 @@ export const AuthProvider = ({ children }) => {
       return {
         ...response.data,
         needsSubscription: !user.subscriptionTier,
-        needsProfile: !user.phoneNumber || !user.customerBaseSize,
       };
     } catch (error) {
       console.error('Login error:', error.response?.data || error);
@@ -62,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Google OAuth login
+  // Google OAuth login - no changes needed
   const loginWithGoogle = () => {
     sessionStorage.setItem('redirectPath', window.location.pathname);
     window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
@@ -85,7 +83,6 @@ export const AuthProvider = ({ children }) => {
         user: userData,
         redirectPath,
         needsSubscription: !userData.subscriptionTier,
-        needsProfile: !userData.phoneNumber || !userData.customerBaseSize,
       };
     } catch (error) {
       console.error('OAuth success handling error:', error);
@@ -105,7 +102,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Refresh user data
+  // Refresh user data - no changes needed
   const refreshUser = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -131,7 +128,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Verify token
+  // Verify token - no changes needed
   const verifyToken = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -160,23 +157,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Check access status
+  // Check access status - simplified version
   const checkAccess = useCallback(() => ({
     isAuthenticated: !!user,
     hasSubscription: !!user?.subscriptionTier,
-    isProfileComplete: !!(user?.phoneNumber && user?.customerBaseSize),
     requiresAction: user
       ? !user.subscriptionTier
         ? 'subscription'
-        : !user.phoneNumber
-        ? 'profile'
         : null
       : 'auth',
     subscriptionTier: user?.subscriptionTier || null,
     isSubscriptionActive: user?.subscriptionActive || false,
   }), [user]);
 
-  // Check subscription status
+  // Check subscription status - no changes needed
   const checkSubscription = async () => {
     try {
       const response = await axios.get('/api/payment/subscription-status');
@@ -195,7 +189,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout
+  // Logout - no changes needed
   const logout = () => {
     localStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
@@ -203,7 +197,6 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.clear();
   };
 
-  // Verify token on mount
   useEffect(() => {
     verifyToken();
   }, [verifyToken]);

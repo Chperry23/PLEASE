@@ -1,15 +1,12 @@
 const Job = require('../models/job');
 const Customer = require('../models/customer');
-const Profile = require('../models/profile');
 
-// Create a new job
 exports.createJob = async (req, res) => {
   console.log('Received job data:', req.body);
   try {
     const jobData = { ...req.body, createdBy: req.user._id };
     console.log('Processed job data:', jobData);
     
-    // Remove scheduledDay if it's null, undefined, or an empty string
     if (!jobData.scheduledDay) {
       delete jobData.scheduledDay;
     }
@@ -26,15 +23,6 @@ exports.createJob = async (req, res) => {
     const job = new Job(jobData);
     await job.save();
 
-    // Update profile progress
-    const profile = await Profile.findOne({ user: req.user._id });
-    if (profile && !profile.setupSteps.firstJobCreated) {
-      profile.setupSteps.firstJobCreated = true;
-      profile.experience += 25;
-      profile.level = Math.floor(profile.experience / 1000) + 1;
-      await profile.save();
-    }
-
     res.status(201).json(job);
   } catch (error) {
     console.error('Error creating job:', error);
@@ -43,6 +31,36 @@ exports.createJob = async (req, res) => {
       return res.status(400).json({ message: 'Validation error', errors: validationErrors });
     }
     res.status(400).json({ message: error.message });
+  }
+};
+
+// In completeJob, remove the profile progress section:
+exports.completeJob = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    if (job.isRecurring) {
+      job.completionCount += 1;
+      job.lastServiceDate = new Date();
+    } else {
+      if (job.status === 'Completed') {
+        return res.status(400).json({ message: 'This one-time job is already completed' });
+      }
+      job.status = 'Completed';
+      job.completionCount = 1;
+      job.lastServiceDate = new Date();
+      job.recurrencePattern = undefined;
+      job.recurringStatus = undefined;
+    }
+
+    const updatedJob = await job.save();
+    res.json(updatedJob);
+  } catch (error) {
+    console.error('Error completing job:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -140,47 +158,7 @@ exports.deleteJob = async (req, res) => {
   }
 };
 
-// Mark a job as complete
-exports.completeJob = async (req, res) => {
-  try {
-    const job = await Job.findById(req.params.id);
-    if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
-    }
-
-    if (job.isRecurring) {
-      job.completionCount += 1;
-      job.lastServiceDate = new Date();
-    } else {
-      if (job.status === 'Completed') {
-        return res.status(400).json({ message: 'This one-time job is already completed' });
-      }
-      job.status = 'Completed';
-      job.completionCount = 1;
-      job.lastServiceDate = new Date();
-      job.recurrencePattern = undefined;
-      job.recurringStatus = undefined;
-    }
-
-    const updatedJob = await job.save();
-
-    // Update profile progress
-    const profile = await Profile.findOne({ user: req.user._id });
-    profile.progress.jobsCompleted += 1;
-    profile.progress.revenueEarned += job.price || 0;
-    profile.experience += 10;
-    profile.level = Math.floor(profile.experience / 1000) + 1;
-    await profile.save();
-
-    res.json(updatedJob);
-  } catch (error) {
-    console.error('Error completing job:', error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-// Rate a job
+//rate job
 exports.rateJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);

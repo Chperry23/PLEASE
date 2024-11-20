@@ -2,7 +2,6 @@ const Customer = require('../models/customer');
 const Job = require('../models/job');
 const csv = require('csv-parser');
 const multer = require('multer');
-const Profile = require('../models/profile');
 const upload = multer();
 const fs = require('fs');
 
@@ -14,21 +13,48 @@ exports.createCustomer = async (req, res) => {
       createdAt: new Date()
     });
     await customer.save();
-
-    // Update profile progress
-    const profile = await Profile.findOne({ user: req.user._id });
-    profile.progress.customersAdded += 1;
-    if (!profile.setupSteps.firstCustomerAdded) {
-      profile.setupSteps.firstCustomerAdded = true;
-      profile.experience += 25;
-    }
-    profile.level = Math.floor(profile.experience / 1000) + 1;
-    await profile.save();
-
     res.status(201).json(customer);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
+};
+
+exports.importCustomers = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  const results = [];
+
+  fs.createReadStream(req.file.path)
+    .pipe(csv())
+    .on('data', (data) => results.push(data))
+    .on('end', async () => {
+      try {
+        const customersToSave = results.map(customer => ({
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          address: {
+            street: customer.street,
+            city: customer.city,
+            state: customer.state,
+            zipCode: customer.zipCode,
+            coordinates: customer.coordinates ? customer.coordinates.split(',').map(Number) : undefined
+          },
+          notes: customer.notes,
+          createdBy: req.user._id
+        }));
+
+        await Customer.insertMany(customersToSave);
+        fs.unlinkSync(req.file.path);
+
+        res.status(200).json({ message: `${customersToSave.length} customers imported successfully` });
+      } catch (error) {
+        console.error('Error importing customers:', error);
+        res.status(500).json({ message: 'Error importing customers' });
+      }
+    });
 };
 
 exports.getAllCustomers = async (req, res) => {
@@ -78,55 +104,6 @@ exports.deleteCustomer = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
-
-exports.importCustomers = async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded' });
-  }
-
-  const results = [];
-
-  fs.createReadStream(req.file.path)
-    .pipe(csv())
-    .on('data', (data) => results.push(data))
-    .on('end', async () => {
-      try {
-        const customersToSave = results.map(customer => ({
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone,
-          address: {
-            street: customer.street,
-            city: customer.city,
-            state: customer.state,
-            zipCode: customer.zipCode,
-            coordinates: customer.coordinates ? customer.coordinates.split(',').map(Number) : undefined
-          },
-          notes: customer.notes,
-          createdBy: req.user._id
-        }));
-
-        await Customer.insertMany(customersToSave);
-
-        // Update profile progress
-        const profile = await Profile.findOne({ user: req.user._id });
-        profile.progress.customersAdded += customersToSave.length;
-        if (!profile.setupSteps.firstCustomerAdded && customersToSave.length > 0) {
-          profile.setupSteps.firstCustomerAdded = true;
-          profile.experience += 25;
-        }
-        profile.level = Math.floor(profile.experience / 1000) + 1;
-        await profile.save();
-
-        fs.unlinkSync(req.file.path);
-
-        res.status(200).json({ message: `${customersToSave.length} customers imported successfully` });
-      } catch (error) {
-        console.error('Error importing customers:', error);
-        res.status(500).json({ message: 'Error importing customers' });
-      }
-    });
 };
 
 exports.getCustomerLifetimeValue = async (req, res) => {

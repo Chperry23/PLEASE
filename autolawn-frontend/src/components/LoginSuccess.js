@@ -1,5 +1,3 @@
-// frontend/src/pages/LoginSuccess.js
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,10 +9,8 @@ const LoginSuccess = () => {
     const token = urlParams.get('token');
 
     if (token) {
-      // Store the token (consider security implications)
       localStorage.setItem('token', token);
-
-      // Optionally, verify the token by fetching /api/auth/verify
+      
       fetch('https://autolawn.app/api/auth/verify', {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -23,16 +19,20 @@ const LoginSuccess = () => {
         .then((response) => response.json())
         .then((data) => {
           console.log('User data:', data);
-          // Redirect to dashboard or home page
-          navigate('/dashboard');
+          // Check for subscription before redirecting
+          if (!data.user.subscriptionTier) {
+            navigate('/pricing', {
+              state: { message: 'Please select a subscription plan to continue.' }
+            });
+          } else {
+            navigate('/dashboard');
+          }
         })
         .catch((error) => {
           console.error('Error fetching user data:', error);
-          // Redirect to sign-in page on error
           navigate('/signin');
         });
     } else {
-      // No token found, redirect to sign-in
       navigate('/signin');
     }
   }, [navigate]);

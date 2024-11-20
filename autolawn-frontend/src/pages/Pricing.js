@@ -16,7 +16,8 @@ const tiers = [
     price: '49.99',
     interval: 'month',
     productId: 'prod_R2TeQ4r5iOH6CG',
-    priceId: 'price_1QAOgoE1a6rnB8cNdwUVro0S', // Replace paymentLink with priceId
+    priceId: 'price_1QN3tpE1a6rnB8cNhDLi0kO5',
+    trialDays: 14,
     features: [
       { text: 'Up to 50 customers', included: true },
       { text: 'Advanced scheduling', included: true },
@@ -33,7 +34,7 @@ const tiers = [
     price: '99.99',
     interval: 'month',
     productId: 'prod_R2TfmQYMHxix1e',
-    priceId: 'price_1QAOhxE1a6rnB8cN0Ceo9AXM', // Replace paymentLink with priceId
+    priceId: 'price_1QAOhxE1a6rnB8cN0Ceo9AXM',
     features: [
       { text: 'Unlimited customers', included: true },
       { text: 'Advanced scheduling', included: true },
@@ -50,7 +51,7 @@ const tiers = [
     price: '199.99',
     interval: 'month',
     productId: 'prod_R2TgIYi0HUAYxf',
-    priceId: 'price_1QAOisE1a6rnB8cNlvqaNaAN', // Replace paymentLink with priceId
+    priceId: 'price_1QAOisE1a6rnB8cNlvqaNaAN',
     features: [
       { text: 'Unlimited customers', included: true },
       { text: 'Advanced scheduling', included: true },
@@ -66,7 +67,7 @@ const tiers = [
 
 const PricingTier = ({ tier, onSelect }) => (
   <div
-    className={`bg-surface p-6 rounded-lg shadow-md ${
+    className={`relative bg-surface p-6 rounded-lg shadow-md ${
       tier.recommended ? 'border-2 border-primary' : ''
     }`}
   >
@@ -75,11 +76,28 @@ const PricingTier = ({ tier, onSelect }) => (
         Recommended
       </span>
     )}
+    {tier.trialDays && (
+      <div className="absolute -top-4 -right-4 bg-green-500 text-white px-3 py-1 rounded-full transform rotate-12 shadow-lg">
+        <span className="text-sm font-bold whitespace-nowrap">
+          {tier.trialDays} Days Free
+        </span>
+      </div>
+    )}
     <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
-    <p className="text-3xl font-bold mb-4">
-      ${tier.price}
-      <span className="text-sm font-normal">/{tier.interval}</span>
-    </p>
+    <div className="mb-4">
+      {tier.trialDays && (
+        <div className="text-sm text-green-600 font-medium mb-2">
+          Try it free for {tier.trialDays} days
+        </div>
+      )}
+      <p className="text-3xl font-bold">
+        ${tier.price}
+        <span className="text-sm font-normal">/{tier.interval}</span>
+      </p>
+      {tier.trialDays && (
+        <p className="text-sm text-gray-500 mt-1">No credit card required during trial</p>
+      )}
+    </div>
     <ul className="space-y-2 mb-6">
       {tier.features.map((feature, index) => (
         <li key={index} className="flex items-center">
@@ -102,7 +120,7 @@ const PricingTier = ({ tier, onSelect }) => (
           : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
       }`}
     >
-      Select Plan
+      {tier.trialDays ? 'Start Free Trial' : 'Select Plan'}
     </button>
   </div>
 );

@@ -39,10 +39,6 @@ const SignIn = () => {
         navigate('/pricing', {
           state: { message: 'Please select a subscription plan to continue.' }
         });
-      } else if (!response.user.phoneNumber || !response.user.customerBaseSize) {
-        navigate('/complete-profile', {
-          state: { message: 'Please complete your profile to continue.' }
-        });
       } else {
         navigate('/dashboard');
       }
@@ -55,8 +51,7 @@ const SignIn = () => {
     } finally {
       setLoading(false);
     }
-  };
-
+  }; 
   const handleGoogleSignIn = () => {
     window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
   };

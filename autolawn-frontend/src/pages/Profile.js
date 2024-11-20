@@ -1,65 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { Tab } from '@headlessui/react';
-import axiosInstance from '../utils/axiosInstance';
 import { useAuth } from '../contexts/AuthContext';
+import axiosInstance from '../utils/axiosInstance';
 import Header from '../components/Header';
-import GeneralTab from './GeneralTab';
-import BadgesTab from './BadgesTab';
-import SecurityTab from './SecurityTab';
-import StatsTab from './StatsTab';
-import AccountTab from './AccountTab';
-import SubscriptionManagement from '../components/SubscriptionManagement';
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
 
 const Profile = () => {
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    bio: '',
     businessName: '',
     businessPhone: '',
-    businessWebsite: '',
-    businessAddress: '',
   });
 
   useEffect(() => {
-    fetchProfile();
-  }, [user]);
-
-  const fetchProfile = async () => {
-    if (!user) {
-      setError('User not authenticated');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await axiosInstance.get('/api/profile');
-      setProfile(response.data);
+    if (user) {
       setFormData({
-        name: response.data.user.name,
-        email: response.data.user.email,
-        bio: response.data.bio || '',
-        businessName: response.data.user.businessInfo?.name || '',
-        businessPhone: response.data.user.businessInfo?.phone || '',
-        businessWebsite: response.data.user.businessInfo?.website || '',
-        businessAddress: response.data.user.businessInfo?.address || '',
+        name: user.name || '',
+        email: user.email || '',
+        businessName: user.businessInfo?.name || '',
+        businessPhone: user.businessInfo?.phone || '',
       });
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-      setError(err.response?.data?.error || 'Failed to load profile.');
-    } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleFormChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -69,7 +35,7 @@ const Profile = () => {
     e.preventDefault();
     try {
       const response = await axiosInstance.put('/api/profile', formData);
-      setProfile(response.data);
+      setFormData(response.data);
       setIsEditing(false);
       setError('');
     } catch (error) {
@@ -78,100 +44,97 @@ const Profile = () => {
     }
   };
 
-  const tabs = [
-    {
-      name: 'General',
-      content: (
-        <GeneralTab
-          profile={profile}
-          formData={formData}
-          handleChange={handleFormChange}
-          handleSubmit={handleFormSubmit}
-          isEditing={isEditing}
-          setIsEditing={setIsEditing}
-        />
-      )
-    },
-    {
-      name: 'Account & Subscription',
-      content: (
-        <div className="space-y-8">
-          <AccountTab 
-            profile={profile}
-            onAccountUpdate={fetchProfile}
-          />
-          <SubscriptionManagement />
-        </div>
-      )
-    },
-    {
-      name: 'Security',
-      content: <SecurityTab />
-    },
-    {
-      name: 'Stats',
-      content: <StatsTab profile={profile} />
-    },
-    {
-      name: 'Badges',
-      content: <BadgesTab profile={profile} />
-    }
-  ];
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <Header />
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Your Profile</h1>
-          {profile?.subscriptionTier && (
-            <span className="px-4 py-2 bg-primary rounded-full text-sm font-semibold">
-              {profile.subscriptionTier} Plan
-            </span>
-          )}
+      <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Profile Settings</h1>
         </div>
 
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          </div>
-        ) : error ? (
+        {error && (
           <div className="bg-red-600 text-white p-4 rounded-md mb-6">{error}</div>
-        ) : (
-          <Tab.Group>
-            <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
-              {tabs.map((tab) => (
-                <Tab
-                  key={tab.name}
-                  className={({ selected }) =>
-                    classNames(
-                      'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
-                      'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
-                      selected
-                        ? 'bg-white text-blue-700 shadow'
-                        : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
-                    )
-                  }
-                >
-                  {tab.name}
-                </Tab>
-              ))}
-            </Tab.List>
+        )}
 
-            <Tab.Panels className="mt-2">
-              {tabs.map((tab, idx) => (
-                <Tab.Panel
-                  key={idx}
-                  className={classNames(
-                    'rounded-xl bg-gray-800 p-6',
-                    'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
-                  )}
-                >
-                  {tab.content}
-                </Tab.Panel>
-              ))}
-            </Tab.Panels>
-          </Tab.Group>
+        {isEditing ? (
+          <form onSubmit={handleFormSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium">Name</label>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                value={formData.name}
+                onChange={handleFormChange}
+                className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium">Email</label>
+              <input
+                type="email"
+                name="email"
+                id="email"
+                value={formData.email}
+                onChange={handleFormChange}
+                className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="businessName" className="block text-sm font-medium">Business Name</label>
+              <input
+                type="text"
+                name="businessName"
+                id="businessName"
+                value={formData.businessName}
+                onChange={handleFormChange}
+                className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="businessPhone" className="block text-sm font-medium">Business Phone</label>
+              <input
+                type="tel"
+                name="businessPhone"
+                id="businessPhone"
+                value={formData.businessPhone}
+                onChange={handleFormChange}
+                className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-white"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="bg-gray-800 rounded-lg p-6 space-y-4">
+            <p><strong>Name:</strong> {formData.name}</p>
+            <p><strong>Email:</strong> {formData.email}</p>
+            <p><strong>Business Name:</strong> {formData.businessName || 'Not provided'}</p>
+            <p><strong>Business Phone:</strong> {formData.businessPhone || 'Not provided'}</p>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Edit Profile
+            </button>
+          </div>
         )}
       </main>
     </div>

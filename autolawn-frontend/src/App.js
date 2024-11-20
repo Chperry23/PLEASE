@@ -10,7 +10,7 @@ import Features from './pages/Features';
 import Pricing from './pages/Pricing';
 import Contact from './pages/Contact';
 import About from './pages/About';
-import PublicProfile  from './pages/PublicProfile';
+import PublicProfile from './pages/PublicProfile';
 
 // Auth Pages
 import SignIn from './components/SignIn';
@@ -18,7 +18,6 @@ import Register from './components/Register';
 import OAuthSuccess from './pages/OAuthSuccess';
 import LoginSuccess from './components/LoginSuccess';
 import PaymentSuccess from './pages/PaymentSuccess';
-import CompleteProfile from './components/CompleteProfile';
 
 // Protected Pages
 import Dashboard from './components/Dashboard';
@@ -46,34 +45,28 @@ function App() {
             <Route path="/features" element={<Features />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/profile" element={<PublicProfile />} />
+            <Route path="/public-profile" element={<PublicProfile />} />
 
-            {/* Auth Routes - Special handling for auth flow */}
+            {/* Auth Routes */}
             <Route path="/signin" element={<SignIn />} />
             <Route path="/register" element={<Register />} />
             <Route path="/oauth-success" element={<OAuthSuccess />} />
             <Route path="/login-success" element={<LoginSuccess />} />
             
-            {/* Semi-protected Routes - Require auth but not subscription */}
+            {/* Routes that require auth but not subscription */}
             <Route path="/pricing" element={
-              <ProtectedRoute requireSubscription={false} requireProfileCompletion={false}>
+              <ProtectedRoute requireSubscription={false}>
                 <Pricing />
               </ProtectedRoute>
             } />
             
             <Route path="/payment-success" element={
-              <ProtectedRoute requireSubscription={false} requireProfileCompletion={false}>
+              <ProtectedRoute requireSubscription={false}>
                 <PaymentSuccess />
               </ProtectedRoute>
             } />
-            
-            <Route path="/complete-profile" element={
-              <ProtectedRoute requireSubscription={true} requireProfileCompletion={false}>
-                <CompleteProfile />
-              </ProtectedRoute>
-            } />
 
-            {/* Fully Protected Routes - Require auth, subscription, and profile completion */}
+            {/* Protected Routes - Require auth and subscription */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
