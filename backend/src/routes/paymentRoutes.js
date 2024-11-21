@@ -6,8 +6,14 @@ const stripe = require('../utils/stripe');
 const auth = require('../middleware/auth');
 const User = require('../models/user');
 
-const STRIPE_SUCCESS_URL = 'https://autolawn.app/subscription-success';
+const STRIPE_SUCCESS_URL = 'https://autolawn.app/payment-success';
 const STRIPE_CANCEL_URL = 'https://autolawn.app/pricing';
+
+const PRICE_TO_TIER_MAP = {
+  'price_1QN3tpE1a6rnB8cNhDLi0kO5': 'basic',
+  'price_1QAOhxE1a6rnB8cN0Ceo9AXM': 'pro',
+  'price_1QAOisE1a6rnB8cNlvqaNaAN': 'enterprise'
+};
 
 // Create a new Stripe Checkout Session
 router.post('/create-checkout-session', auth, async (req, res) => {
@@ -90,8 +96,16 @@ router.post('/verify-session', auth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const priceId = subscription.items.data[0].price.id;
+    const subscriptionTier = PRICE_TO_TIER_MAP[priceId];
+
+    if (!subscriptionTier) {
+      console.error(`No tier mapping found for price ID: ${priceId}`);
+      return res.status(400).json({ error: 'Invalid subscription tier' });
+    }
+
     user.stripeSubscriptionId = subscription.id;
-    user.subscriptionTier = subscription.items.data[0].price.id;
+    user.subscriptionTier = subscriptionTier; // Use the mapped tier name
     user.subscriptionActive = ['active', 'trialing'].includes(subscription.status);
     await user.save();
 

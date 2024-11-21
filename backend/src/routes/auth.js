@@ -111,46 +111,40 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user and include password for verification
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       console.log(`User not found with email: ${email}`);
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log(`Password mismatch for user: ${email}`);
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // **New Code: Check Subscription Status**
     if (!user.subscriptionTier || !user.subscriptionActive) {
       console.log(`User ${email} attempted to log in without an active subscription.`);
       return res.status(403).json({ message: 'Access denied. Please subscribe to access your account.' });
     }
 
-    // Create token
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
-    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // Set token as HTTP-only cookie
+    // Set cookie and return both user and token
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'None',
-      maxAge: 24 * 60 * 60 * 1000 // 1 day
+      maxAge: 24 * 60 * 60 * 1000
     });
 
-    // Return user object (without the needsSubscription flag)
     res.json({
       user: {
         _id: user._id,
@@ -161,7 +155,8 @@ router.post('/login', async (req, res) => {
         phoneNumber: user.phoneNumber,
         customerBaseSize: user.customerBaseSize,
         needsProfile: !user.phoneNumber || !user.customerBaseSize
-      }
+      },
+      token  // Add this line to include token in response
     });
   } catch (error) {
     console.error('Login error:', error);
