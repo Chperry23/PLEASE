@@ -32,7 +32,7 @@ const PaymentSuccess = () => {
 
         try {
           // Verify the session status
-          const response = await axios.post('/api/payment/verify-session', {
+          const response = await axios.post('/payment/verify-session', {
             sessionId
           });
 

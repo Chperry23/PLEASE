@@ -16,7 +16,6 @@ export const AuthProvider = ({ children }) => {
       console.log('Registration response:', response.data);
 
       const { token, user } = response.data;
-
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
@@ -32,39 +31,85 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Regular login
-  const login = async (email, password) => {
-    try {
-      console.log('Login attempt:', { email });
-      const response = await axios.post('/api/auth/login', { email, password });
-      console.log('Login response:', response.data);
+const login = async (email, password) => {
+  try {
+    console.log('Login attempt:', { email });
+    const response = await axios.post('/auth/login', { email, password });
+    console.log('Full login response:', response);
+    console.log('Response data structure:', {
+      hasUser: !!response.data.user,
+      hasToken: !!response.data.token,
+      fullData: response.data
+    });
 
-      const { token, user } = response.data;
-      if (!token || !user) {
-        throw new Error('Invalid server response');
-      }
+    // Destructure after logging
+    const { user, token } = response.data;
 
+    // Additional debug logging
+    console.log('Extracted data:', {
+      userExists: !!user,
+      tokenExists: !!token,
+      userData: user,
+    });
+
+    if (!user) {
+      throw new Error('User data missing from response');
+    }
+
+    if (!token) {
+      throw new Error('Authentication token missing from response');
+    }
+
+    // Update auth state
+    localStorage.setItem('token', token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(user);
+
+    // Log final state
+    console.log('Auth state updated:', {
+      userSet: !!user,
+      tokenSet: !!localStorage.getItem('token'),
+      authHeader: !!axios.defaults.headers.common['Authorization']
+    });
+
+    return {
+      user,
+      token,
+      needsSubscription: !user.subscriptionTier,
+    };
+  } catch (error) {
+    console.error('Login error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      fullError: error
+    });
+    
+    if (error.response?.status === 400) {
+      throw new Error('Invalid email or password');
+    }
+    
+    throw new Error(error.message || 'Unable to sign in. Please try again.');
+  }
+};
+
+  // Utility function to update token
+  const updateToken = useCallback((token) => {
+    if (token) {
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
-
-      return {
-        ...response.data,
-        needsSubscription: !user.subscriptionTier,
-      };
-    } catch (error) {
-      console.error('Login error:', error.response?.data || error);
-      if (error.response?.status === 400) {
-        throw new Error('Invalid email or password');
-      }
-      throw new Error('Unable to sign in. Please try again.');
+    } else {
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
     }
-  };
+  }, []);
 
-  // Google OAuth login - no changes needed
+  // Google OAuth login
   const loginWithGoogle = () => {
     sessionStorage.setItem('redirectPath', window.location.pathname);
-    window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
+    window.location.href = `${process.env.REACT_APP_API_URL}/auth/google`;
   };
+
 
   // Handle OAuth success
   const handleOAuthSuccess = async (token) => {
@@ -72,8 +117,7 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         throw new Error('No token provided');
       }
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      updateToken(token);
       const userData = await verifyToken();
 
       const redirectPath = sessionStorage.getItem('redirectPath');
@@ -93,7 +137,7 @@ export const AuthProvider = ({ children }) => {
   // Update user profile
   const updateUserProfile = async (profileData) => {
     try {
-      const response = await axios.put('/api/profile', profileData);
+      const response = await axios.put('/profile', profileData);
       setUser(response.data);
       return response.data;
     } catch (error) {
@@ -102,7 +146,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Refresh user data - no changes needed
+  // Refresh user data
   const refreshUser = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -111,7 +155,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const response = await axios.get('/api/user');
+      const response = await axios.get('/user');
 
       if (!response.data) {
         throw new Error('No user data received');
@@ -121,14 +165,13 @@ export const AuthProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('User refresh error:', error);
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
+      updateToken(null);
       setUser(null);
       throw error;
     }
   };
 
-  // Verify token - no changes needed
+  // Verify token
   const verifyToken = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -138,7 +181,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const response = await axios.get('/api/auth/verify');
+      const response = await axios.get('/auth/verify');
 
       if (!response.data?.user) {
         throw new Error('Invalid token response');
@@ -148,16 +191,15 @@ export const AuthProvider = ({ children }) => {
       return response.data.user;
     } catch (error) {
       console.error('Token verification failed:', error);
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
+      updateToken(null);
       setUser(null);
       throw error;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [updateToken]);
 
-  // Check access status - simplified version
+  // Check access status
   const checkAccess = useCallback(() => ({
     isAuthenticated: !!user,
     hasSubscription: !!user?.subscriptionTier,
@@ -170,10 +212,10 @@ export const AuthProvider = ({ children }) => {
     isSubscriptionActive: user?.subscriptionActive || false,
   }), [user]);
 
-  // Check subscription status - no changes needed
+  // Check subscription status
   const checkSubscription = async () => {
     try {
-      const response = await axios.get('/api/payment/subscription-status');
+      const response = await axios.get('/payment/subscription-status');
       const { active, tier } = response.data;
 
       setUser((prev) => ({
@@ -189,10 +231,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout - no changes needed
+  // Logout
   const logout = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+    updateToken(null);
     setUser(null);
     sessionStorage.clear();
   };

@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://autolawn.app',
+  baseURL: 'https://autolawn.app/api',  // Changed this line
   timeout: 120000,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true  // Added this line for cookies
 });
 
 // Request interceptor
@@ -16,16 +17,12 @@ axiosInstance.interceptors.request.use((config) => {
     data: config.data
   });
 
-  // Ensure API paths are correct
+  // Ensure URL starts with a slash
   if (!config.url.startsWith('/')) {
     config.url = `/${config.url}`;
   }
 
-  // Add api prefix if not present
-  if (!config.url.startsWith('/api/')) {
-    config.url = `/api${config.url}`;
-  }
-
+  // Remove the API prefix addition since it's now in baseURL
   console.log('Modified Request:', {
     method: config.method,
     url: config.url,
