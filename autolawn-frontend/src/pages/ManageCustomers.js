@@ -42,7 +42,7 @@ const ManageCustomers = () => {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const response = await axiosInstance.get('http://autolawn.app/api/customers', {
+      const response = await axiosInstance.get('/customers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setCustomers(response.data);
@@ -57,7 +57,7 @@ const ManageCustomers = () => {
   const handleDeleteCustomer = async (customerId) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
       try {
-        await axiosInstance.delete(`http://autolawn.app/api/customers/${customerId}`, {
+        await axiosInstance.delete(`/customers/${customerId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         setCustomers(customers.filter((customer) => customer._id !== customerId));
@@ -75,7 +75,7 @@ const ManageCustomers = () => {
   const handleUpdateCustomer = async () => {
     try {
       const response = await axiosInstance.put(
-        `http://autolawn.app/api/customers/${editingCustomer._id}`,
+        `/customers/${editingCustomer._id}`,
         editingCustomer,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
@@ -96,7 +96,7 @@ const ManageCustomers = () => {
   const handleStatusChange = async (customerId, newStatus) => {
     try {
       await axiosInstance.put(
-        `http://autolawn.app/api/customers/${customerId}/status`,
+        `/Customers/${customerId}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );

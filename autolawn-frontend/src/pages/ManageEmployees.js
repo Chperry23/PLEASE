@@ -19,7 +19,7 @@ const ManageEmployees = () => {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const response = await axiosInstance.get('http://autolawn.app/api/employees', {
+      const response = await axiosInstance.get('/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEmployees(response.data);
@@ -32,7 +32,7 @@ const ManageEmployees = () => {
 
   const fetchCrews = async () => {
     try {
-      const response = await axiosInstance.get('http://autolawn.app/api/crews', {
+      const response = await axiosInstance.get('/crews', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCrews(response.data);
@@ -48,7 +48,7 @@ const ManageEmployees = () => {
       return;
     }
     try {
-      const response = await axiosInstance.post('http://autolawn.app/api/crews', { name: newCrewName }, {
+      const response = await axiosInstance.post('/crews', { name: newCrewName }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCrews([...crews, response.data]);
@@ -62,7 +62,7 @@ const ManageEmployees = () => {
   const handleDeleteCrew = async (crewId) => {
     if (window.confirm('Are you sure you want to delete this crew?')) {
       try {
-        await axiosInstance.delete(`http://autolawn.app/api/crews/${crewId}`, {
+        await axiosInstance.delete(`/crews/${crewId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setCrews(crews.filter(crew => crew._id !== crewId));
@@ -86,7 +86,7 @@ const ManageEmployees = () => {
     console.log('Attempting to move employee:', { employeeId, sourceCrewId, destinationCrewId });
   
     try {
-      const response = await axiosInstance.put('http://autolawn.app/api/crews/move-employee', {
+      const response = await axiosInstance.put('/crews/move-employee', {
         employeeId,
         sourceCrewId: sourceCrewId === 'unassigned' ? null : sourceCrewId,
         destinationCrewId: destinationCrewId === 'unassigned' ? null : destinationCrewId

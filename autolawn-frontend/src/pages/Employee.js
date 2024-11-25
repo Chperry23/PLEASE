@@ -21,7 +21,7 @@ const Employee = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await axiosInstance.get('https://autolawn.app/api/employees', {
+      const response = await axiosInstance.get('/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEmployees(response.data);
@@ -33,7 +33,7 @@ const Employee = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axiosInstance.post('https://autolawn.app/api/employees', {
+      await axiosInstance.post('/employees', {
         name,
         email,
         phone,
@@ -59,7 +59,7 @@ const Employee = () => {
   const handleDelete = async (employeeId) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       try {
-        await axiosInstance.delete(`https://autolawn.app/api/employees/${employeeId}`, {
+        await axiosInstance.delete(`/employees/${employeeId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchEmployees();

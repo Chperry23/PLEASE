@@ -145,8 +145,7 @@ const Customers = () => {
     setLoading(true);
 
     try {
-      await axiosInstance.post('https://autolawn.app/api/customers', customer, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      await axiosInstance.post('/customers', customer, {
       });
       setSuccess('Customer added successfully!');
       setCustomer({
@@ -176,12 +175,9 @@ const Customers = () => {
 
     setLoading(true);
     try {
-      await axiosInstance.post('https://autolawn.app/api/customers/import', formData, {
+      await axiosInstance.post('/customers/import', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+          'Content-Type': 'multipart/form-data'        } });
       setSuccess('Customers imported successfully!');
       setCsvFile(null);
     } catch (error) {

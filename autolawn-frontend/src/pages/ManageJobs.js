@@ -33,7 +33,7 @@ const ManageJobs = () => {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const response = await axiosInstance.get('http://autolawn.app/api/jobs', {
+      const response = await axiosInstance.get('/jobs', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const recurringJobs = response.data.filter(job => job.isRecurring);
@@ -84,7 +84,7 @@ const ManageJobs = () => {
         const inputElement = document.getElementById('actualDurationInput');
         const newDuration = parseInt(inputElement.value, 10);
         if (!isNaN(newDuration) && newDuration >= 0) {
-          axiosInstance.put(`http://autolawn.app/api/jobs/${job._id}`, 
+          axiosInstance.put(`/jobs/${job._id}`, 
             { actualDuration: newDuration },
             { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
           )
@@ -116,7 +116,7 @@ const ManageJobs = () => {
       onConfirm: async () => {
         try {
           await Promise.all(jobsToDelete.map(jobId => 
-            axiosInstance.delete(`http://autolawn.app/api/jobs/${jobId}`, {
+            axiosInstance.delete(`/jobs/${jobId}`, {
               headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             })
           ));
@@ -147,7 +147,7 @@ const ManageJobs = () => {
         message: 'Are you sure you want to mark this job as completed?',
         onConfirm: async () => {
           try {
-            const response = await axiosInstance.post(`http://autolawn.app/api/jobs/${jobId}/complete`, 
+            const response = await axiosInstance.post(`/jobs/${jobId}/complete`, 
               {}, 
               { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
             );
@@ -175,7 +175,7 @@ const ManageJobs = () => {
 
   const handleUpdateJob = async () => {
     try {
-      await axiosInstance.put(`http://autolawn.app/api/jobs/${editingJob._id}`, editingJob, {
+      await axiosInstance.put(`/jobs/${editingJob._id}`, editingJob, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchJobs();
@@ -217,7 +217,7 @@ const ManageJobs = () => {
       onConfirm: async () => {
         try {
           await Promise.all(jobsToComplete.map(jobId => 
-            axiosInstance.post(`http://autolawn.app/api/jobs/${jobId}/complete`, 
+            axiosInstance.post(`/jobs/${jobId}/complete`, 
               {}, 
               { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
             )
@@ -235,7 +235,7 @@ const ManageJobs = () => {
   const handleStatusChange = async (jobId, newStatus, isRecurring) => {
     try {
       const updatedStatus = isRecurring ? { recurringStatus: newStatus } : { status: newStatus };
-      await axiosInstance.put(`http://autolawn.app/api/jobs/${jobId}`, 
+      await axiosInstance.put(`/jobs/${jobId}`, 
         updatedStatus,
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
