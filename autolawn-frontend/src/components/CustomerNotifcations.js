@@ -31,7 +31,7 @@ const CustomerNotifications = ({ customers }) => {
     setSuccess('');
 
     try {
-      const response = await axios.post('https://autolawn.app/api/notifications', {
+      const response = await axios.post('/api/notifications', {
         customerIds: selectedCustomers,
         message
       }, {

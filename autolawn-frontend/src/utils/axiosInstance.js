@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://autolawn.app/api',
+  baseURL: '/api',
   timeout: 120000,
   headers: {
     'Content-Type': 'application/json'

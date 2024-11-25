@@ -37,8 +37,7 @@ const Jobs = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axiosInstance.get('/customers', {
-      });
+      const response = await axiosInstance.get('/customers');
       const sanitizedCustomers = response.data.map(customer => ({
         ...customer,
         address: customer.address || {},
@@ -56,125 +55,124 @@ const Jobs = () => {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-        const response = await axiosInstance.get('/jobs', {
-        });
+      const response = await axiosInstance.get('/jobs');
 
-        // Sort jobs by createdAt date and take the last 3
-        const oneTimeJobs = response.data
-            .filter(job => !job.isRecurring)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 3);
-        const recurringJobs = response.data
-            .filter(job => job.isRecurring)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 3);
+      // Sort jobs by createdAt date and take the last 3
+      const oneTimeJobs = response.data
+        .filter(job => !job.isRecurring)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 3);
+      const recurringJobs = response.data
+        .filter(job => job.isRecurring)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 3);
 
-        setJobs({ oneTime: oneTimeJobs, recurring: recurringJobs });
+      setJobs({ oneTime: oneTimeJobs, recurring: recurringJobs });
     } catch (error) {
-        console.error('Error fetching jobs:', error);
-        setError('Failed to fetch jobs. Please try again.');
+      console.error('Error fetching jobs:', error);
+      setError('Failed to fetch jobs. Please try again.');
     }
     setLoading(false);
-};
+  };
 
-const fetchServices = async () => {
-  try {
-    const response = await axiosInstance.get('/profile/services');
-    setServices(response.data);
-  } catch (error) {
-    console.error('Error fetching services:', error);
-    setError('Failed to fetch services. Please try again.');
-  }
-};
+  const fetchServices = async () => {
+    try {
+      const response = await axiosInstance.get('/profile/services');
+      setServices(response.data);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      setError('Failed to fetch services. Please try again.');
+    }
+  };
 
-const handleChange = (e) => {
-  const { name, value } = e.target;
-  if (name === 'service') {
-    setJob(prevJob => ({
-      ...prevJob,
-      service: value
-    }));
-  } else if (name === 'customer') {
-    const selectedCustomer = customers.find(customer => customer._id === value);
-    if (selectedCustomer) {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'service') {
       setJob(prevJob => ({
         ...prevJob,
-        customer: value,
-        location: {
-          address: selectedCustomer.address ? 
-            `${selectedCustomer.address.street || ''}, ${selectedCustomer.address.city || ''}, ${selectedCustomer.address.state || ''} ${selectedCustomer.address.zipCode || ''}`.trim() : 
-            'Address not available',
-          coordinates: selectedCustomer.address?.coordinates || []
+        service: value
+      }));
+    } else if (name === 'customer') {
+      const selectedCustomer = customers.find(customer => customer._id === value);
+      if (selectedCustomer) {
+        setJob(prevJob => ({
+          ...prevJob,
+          customer: value,
+          location: {
+            address: selectedCustomer.address ? 
+              `${selectedCustomer.address.street || ''}, ${selectedCustomer.address.city || ''}, ${selectedCustomer.address.state || ''} ${selectedCustomer.address.zipCode || ''}`.trim() : 
+              'Address not available',
+            coordinates: selectedCustomer.address?.coordinates || []
+          }
+        }));
+      }
+    } else if (name === 'isRecurring') {
+      setJob(prevJob => ({
+        ...prevJob,
+        isRecurring: value === 'true',
+        recurrencePattern: value === 'true' ? 'Weekly' : 'One-time'
+      }));
+    } else if (name === 'scheduledDay') {
+      setJob(prevJob => ({
+        ...prevJob,
+        scheduledDay: value === '' ? null : value  // Set to null if empty string
+      }));
+    } else if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setJob(prevJob => ({
+        ...prevJob,
+        [parent]: {
+          ...prevJob[parent],
+          [child]: value
         }
       }));
+    } else {
+      setJob(prevJob => ({ ...prevJob, [name]: value }));
     }
-  } else if (name === 'isRecurring') {
-    setJob(prevJob => ({
-      ...prevJob,
-      isRecurring: value === 'true',
-      recurrencePattern: value === 'true' ? 'Weekly' : 'One-time'
-    }));
-  } else if (name === 'scheduledDay') {
-    setJob(prevJob => ({
-      ...prevJob,
-      scheduledDay: value === '' ? null : value  // Set to null if empty string
-    }));
-  } else if (name.includes('.')) {
-    const [parent, child] = name.split('.');
-    setJob(prevJob => ({
-      ...prevJob,
-      [parent]: {
-        ...prevJob[parent],
-        [child]: value
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const jobData = { ...job };
+      if (!jobData.scheduledDay) {
+        delete jobData.scheduledDay;  // Remove scheduledDay if it's null
       }
-    }));
-  } else {
-    setJob(prevJob => ({ ...prevJob, [name]: value }));
-  }
-};
+      
+      console.log('Sending job data:', jobData);  // Log the job data before sending
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
-  setLoading(true);
-
-  try {
-    const jobData = { ...job };
-    if (!jobData.scheduledDay) {
-      delete jobData.scheduledDay;  // Remove scheduledDay if it's null
+      const response = await axiosInstance.post('/jobs', jobData);
+      console.log('Job created:', response.data);  // Log the response data
+      setSuccess('Job created successfully!');
+      setJob({
+        service: '',
+        description: '',
+        customer: '',
+        price: '',
+        status: 'Pending',
+        isRecurring: false,
+        recurrencePattern: 'One-time',
+        estimatedDuration: '',
+        location: {
+          address: '',
+          coordinates: []
+        },
+        cost: '',
+        notes: '',
+        scheduledDay: null
+      });
+      fetchJobs();
+      setShowForm(false);
+    } catch (error) {
+      console.error('Error creating job:', error.response?.data || error.message);
+      setError(error.response?.data?.message || 'Failed to create job. Please try again.');
     }
-    
-    console.log('Sending job data:', jobData);  // Log the job data before sending
-
-    const response = await axiosInstance.post('/jobs', jobData);
-    console.log('Job created:', response.data);  // Log the response data
-    setSuccess('Job created successfully!');
-    setJob({
-      service: '',
-      description: '',
-      customer: '',
-      price: '',
-      status: 'Pending',
-      isRecurring: false,
-      recurrencePattern: 'One-time',
-      estimatedDuration: '',
-      location: {
-        address: '',
-        coordinates: []
-      },
-      cost: '',
-      notes: '',
-      scheduledDay: null
-    });
-    fetchJobs();
-    setShowForm(false);
-  } catch (error) {
-    console.error('Error creating job:', error.response?.data || error.message);
-    setError(error.response?.data?.message || 'Failed to create job. Please try again.');
-  }
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
   const renderJobTable = (jobList, title) => (
     <div className="mb-8">
@@ -237,7 +235,7 @@ const handleSubmit = async (e) => {
     </div>
   );  
 
-  return (
+return (
     <div className="min-h-screen bg-background text-text">
       <Header />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

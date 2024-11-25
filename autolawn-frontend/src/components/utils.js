@@ -1,7 +1,7 @@
 import axios from 'axios';
 import debounce from 'lodash/debounce';
 
-export const API_BASE_URL = 'https://autolawn.app/api';
+export const API_BASE_URL = '/api';
 
 export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 

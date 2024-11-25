@@ -11,7 +11,7 @@ const LoginSuccess = () => {
     if (token) {
       localStorage.setItem('token', token);
       
-      fetch('https://autolawn.app/api/auth/verify', {
+      fetch('/api/auth/verify', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
