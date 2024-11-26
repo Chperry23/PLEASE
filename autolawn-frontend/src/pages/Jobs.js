@@ -75,15 +75,25 @@ const Jobs = () => {
     setLoading(false);
   };
 
-  const fetchServices = async () => {
-    try {
-      const response = await axiosInstance.get('/profile/services');
-      setServices(response.data);
-    } catch (error) {
-      console.error('Error fetching services:', error);
-      setError('Failed to fetch services. Please try again.');
+const fetchServices = async () => {
+  try {
+    console.log('Fetching services...');
+    const response = await axiosInstance.get('/services');
+    console.log('Services received:', response.data);
+    setServices(response.data);
+  } catch (error) {
+    console.error('Error fetching services:', error);
+    // More detailed error logging
+    if (error.response) {
+      console.error('Error response:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
     }
-  };
+    setError('Failed to fetch services. Please try again.');
+  }
+};
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -6,9 +6,6 @@ const auth = require('../middleware/auth');
 
 router.get('/', auth, profileController.getProfile);
 router.put('/', auth, profileController.updateProfile);
-router.get('/services', auth, profileController.getServices);
-router.post('/services', auth, profileController.addService);
-router.put('/services/:serviceId', auth, profileController.updateService);
-router.delete('/services/:serviceId', auth, profileController.deleteService);
+router.get('/subscription', auth, profileController.getSubscriptionStatus);
 
 module.exports = router;

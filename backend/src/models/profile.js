@@ -13,15 +13,7 @@ const profileSchema = new mongoose.Schema({
     phone: { type: String, default: '' },
     website: { type: String, default: '' },
     address: { type: String, default: '' },
-  },
-  services: [
-    {
-      name: { type: String },
-      description: { type: String },
-      price: { type: Number },
-      duration: { type: Number },
-    },
-  ],
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Profile', profileSchema);

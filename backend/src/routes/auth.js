@@ -8,8 +8,8 @@ const passport = require('passport');
 const bcrypt = require('bcryptjs');
 const stripe = require('../utils/stripe');
 const verifyToken = require('../middleware/auth'); // Import the auth middleware
+const Profile = require('../models/profile');
 
-// Register endpoint
 router.post('/register', async (req, res) => {
   try {
     console.log('Registration request received:', { ...req.body, password: '[FILTERED]' });
@@ -51,6 +51,16 @@ router.post('/register', async (req, res) => {
     await user.save();
     console.log('User created successfully:', user._id);
 
+    // **Create a profile for the new user**
+    const profile = new Profile({
+      user: user._id,
+      businessInfo: {},
+      services: [],
+    });
+
+    await profile.save();
+    console.log('Profile created successfully:', profile._id);
+
     // Create JWT token
     const token = jwt.sign(
       { id: user._id },
@@ -58,18 +68,15 @@ router.post('/register', async (req, res) => {
       { expiresIn: '1d' }
     );
 
-// auth.js
-
-    // When setting the token cookie
+    // Set the token cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Will be true now
-      sameSite: 'None', // Allows cross-site cookies
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'None',
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
-
-    // Return success with user data (without the token)
+    // Return success with user data
     res.status(201).json({
       user: {
         _id: user._id,

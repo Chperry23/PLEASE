@@ -4,151 +4,151 @@ const User = require('../models/user');
 
 exports.getProfile = async (req, res) => {
   try {
+    // Find profile and populate user data with all relevant fields
     let profile = await Profile.findOne({ user: req.user._id }).populate({
       path: 'user',
-      select: 'name email'
+      select: 'name email phoneNumber customerBaseSize accountStatus subscriptionTier subscriptionActive stripeCustomerId'
     });
     
+    // If no profile exists, create one
     if (!profile) {
       profile = new Profile({
         user: req.user._id,
-        businessInfo: {}
+        businessInfo: {
+          name: '',
+          phone: '',
+          website: '',
+          address: ''
+        }
       });
       await profile.save();
+      
+      // Fetch again with populated user data
       profile = await Profile.findOne({ user: req.user._id }).populate({
         path: 'user',
-        select: 'name email'
+        select: 'name email phoneNumber customerBaseSize accountStatus subscriptionTier subscriptionActive stripeCustomerId'
       });
     }
+
+    // Get subscription details using the user model method
+    const subscriptionDetails = profile.user.getSubscriptionDetails();
+
+    // Format response
+    const response = {
+      // User information
+      name: profile.user.name,
+      email: profile.user.email,
+      phoneNumber: profile.user.phoneNumber,
+      customerBaseSize: profile.user.customerBaseSize,
+      accountStatus: profile.user.accountStatus,
+      
+      // Business information
+      businessInfo: {
+        name: profile.businessInfo.name,
+        phone: profile.businessInfo.phone,
+        website: profile.businessInfo.website,
+        address: profile.businessInfo.address
+      },
+
+      // Subscription information
+      subscription: subscriptionDetails,
+      
+      // Timestamps
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt
+    };
     
-    res.json(profile);
+    res.json(response);
   } catch (error) {
     console.error('Error in getProfile:', error);
-    res.status(500).json({ error: 'Server error.' });
+    res.status(500).json({ message: 'Error fetching profile.', error: error.message });
   }
 };
 
 exports.updateProfile = async (req, res) => {
-  const { 
-    name, 
-    email, 
-    businessName, 
-    businessPhone, 
-    businessWebsite, 
-    businessAddress 
-  } = req.body;
-
   try {
-    let profile = await Profile.findOne({ user: req.user._id });
-    let user = await User.findById(req.user._id);
+    const { 
+      name, 
+      email, 
+      phoneNumber,
+      customerBaseSize,
+      businessName, 
+      businessPhone, 
+      businessWebsite, 
+      businessAddress 
+    } = req.body;
 
+    // Find or create profile
+    let profile = await Profile.findOne({ user: req.user._id });
     if (!profile) {
       profile = new Profile({ user: req.user._id });
     }
 
+    // Update user information
+    const user = await User.findById(req.user._id);
     if (user) {
-      // Update user basic info
       if (name) user.name = name;
       if (email) user.email = email;
+      if (phoneNumber) user.phoneNumber = phoneNumber;
+      if (customerBaseSize) user.customerBaseSize = customerBaseSize;
+      await user.save();
     }
 
-    // Update business info
+    // Update business information
     profile.businessInfo = {
       name: businessName || profile.businessInfo?.name || '',
       phone: businessPhone || profile.businessInfo?.phone || '',
       website: businessWebsite || profile.businessInfo?.website || '',
-      address: businessAddress || profile.businessInfo?.address || '',
+      address: businessAddress || profile.businessInfo?.address || ''
     };
 
-    await Promise.all([
-      profile.save(),
-      user ? user.save() : Promise.resolve()
-    ]);
+    await profile.save();
 
-    const updatedProfile = await Profile.findOne({ user: req.user._id })
-      .populate('user', ['name', 'email']);
+    // Get subscription details
+    const subscriptionDetails = user.getSubscriptionDetails();
 
-    res.json(updatedProfile);
+    // Format and send response
+    const response = {
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      customerBaseSize: user.customerBaseSize,
+      accountStatus: user.accountStatus,
+      businessInfo: profile.businessInfo,
+      subscription: subscriptionDetails,
+      updatedAt: profile.updatedAt
+    };
+
+    res.json(response);
   } catch (error) {
     console.error('Error updating profile:', error);
-    res.status(500).json({ error: 'Server error.' });
+    res.status(500).json({ 
+      message: 'Error updating profile.', 
+      error: error.message 
+    });
   }
 };
 
-// Service management functions can stay the same as they are already well-structured
-exports.getServices = async (req, res) => {
+// Get subscription status using the User model's method
+exports.getSubscriptionStatus = async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.user._id });
-    if (!profile) {
-      return res.status(404).json({ error: 'Profile not found.' });
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
     }
-    res.json(profile.services);
+
+    const subscriptionDetails = user.getSubscriptionDetails();
+
+    res.json({
+      hasActiveSubscription: user.hasActiveSubscription(),
+      subscriptionDetails: subscriptionDetails
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Error fetching services.' });
-  }
-};
-
-exports.addService = async (req, res) => {
-  try {
-    const profile = await Profile.findOne({ user: req.user._id });
-    if (!profile) {
-      return res.status(404).json({ error: 'Profile not found.' });
-    }
-
-    const newService = {
-      name: req.body.name,
-      description: req.body.description,
-      price: req.body.price,
-      duration: req.body.duration
-    };
-
-    if (!profile.services) {
-      profile.services = [];
-    }
-
-    profile.services.push(newService);
-    await profile.save();
-
-    res.status(201).json(profile.services);
-  } catch (error) {
-    res.status(500).json({ error: 'Error adding service.' });
-  }
-};
-
-exports.updateService = async (req, res) => {
-  try {
-    const profile = await Profile.findOne({ user: req.user._id });
-    if (!profile) {
-      return res.status(404).json({ error: 'Profile not found.' });
-    }
-
-    const serviceIndex = profile.services.findIndex(s => s._id.toString() === req.params.serviceId);
-    if (serviceIndex === -1) {
-      return res.status(404).json({ error: 'Service not found.' });
-    }
-
-    profile.services[serviceIndex] = { ...profile.services[serviceIndex], ...req.body };
-    await profile.save();
-
-    res.json(profile.services[serviceIndex]);
-  } catch (error) {
-    res.status(500).json({ error: 'Error updating service.' });
-  }
-};
-
-exports.deleteService = async (req, res) => {
-  try {
-    const profile = await Profile.findOne({ user: req.user._id });
-    if (!profile) {
-      return res.status(404).json({ error: 'Profile not found.' });
-    }
-
-    profile.services = profile.services.filter(s => s._id.toString() !== req.params.serviceId);
-    await profile.save();
-
-    res.json({ message: 'Service deleted successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Error deleting service.' });
+    console.error('Error fetching subscription status:', error);
+    res.status(500).json({ 
+      message: 'Error fetching subscription information.', 
+      error: error.message 
+    });
   }
 };
 
