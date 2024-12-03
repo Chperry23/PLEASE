@@ -34,6 +34,9 @@ import RouteAssignments from './pages/RouteAssignments';
 import RouteMap from './pages/RouteMap';
 import SendNotifications from './pages/SendNotifications';
 
+// **Import the Calendar Page**
+import CalendarPage from './pages/Calendar'; // Adjust the path if necessary
+
 function App() {
   return (
     <AuthProvider>
@@ -87,6 +90,13 @@ function App() {
             <Route path="/route-map" element={
               <ProtectedRoute>
                 <RouteMap />
+              </ProtectedRoute>
+            } />
+
+            {/* **Add the Calendar Route** */}
+            <Route path="/calendar" element={
+              <ProtectedRoute>
+                <CalendarPage />
               </ProtectedRoute>
             } />
 

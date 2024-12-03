@@ -572,7 +572,7 @@ const BuildRoutes = () => {
     const isSelected = selectedJobs.includes(job._id);
   
     const customerName = job.customer?.name || 'No Customer';
-    const jobTitle = job.title || 'No Title';
+    const jobTitle = job.service || 'No Service';
   
     // Calculate days since last service
     const now = new Date();
@@ -632,7 +632,7 @@ const BuildRoutes = () => {
           <div className="mt-2">
             <p className="text-gray-300">{jobTitle}</p>
             <p className="text-gray-400">{job.location?.address || 'No Address'}</p>
-            <p className="text-gray-400">Revenue: ${job.cost || 'No Price'}</p>
+            <p className="text-gray-400">Revenue: ${job.price || 'No Price'}</p>
             <p className="text-gray-400">Type: {job.isRecurring ? job.recurrencePattern : 'One-time'}</p>
             <p className="text-gray-400">Last Service Date: {lastServiceDate ? lastServiceDate.toLocaleDateString() : 'N/A'}</p>
             <p className="text-gray-400">Days Since Last Service: {daysSinceText}</p>
@@ -825,15 +825,15 @@ const BuildRoutes = () => {
                 // Calculate total revenue for weekly jobs
                 const weeklyJobs = route.jobs['weekly'] || [];
                 const totalWeeklyRevenue = weeklyJobs.reduce((sum, job) => {
-                  const jobCost = parseFloat(job.cost || job.price || 0);
-                  return sum + (isNaN(jobCost) ? 0 : jobCost);
+                  const jobPrice = parseFloat(job.price || 0);
+                  return sum + (isNaN(jobPrice) ? 0 : jobPrice);
                 }, 0);
   
                 // Calculate total revenue for bi-weekly jobs
                 const biWeeklyJobs = route.jobs['biWeekly'] || [];
                 const totalBiWeeklyRevenue = biWeeklyJobs.reduce((sum, job) => {
-                  const jobCost = parseFloat(job.cost || job.price || 0);
-                  return sum + (isNaN(jobCost) ? 0 : jobCost);
+                  const jobPrice = parseFloat(job.price || 0);
+                  return sum + (isNaN(jobPrice) ? 0 : jobPrice);
                 }, 0);
   
                 // Total revenue from weekly and bi-weekly jobs

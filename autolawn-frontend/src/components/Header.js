@@ -1,18 +1,18 @@
+// src/components/Header.js
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'; // Add icons for dropdown indicator
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const Header = () => {
   const { user, logout } = useAuth();
-  const [activeDropdown, setActiveDropdown] = useState(null); // Track the active dropdown
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Toggle dropdown, but only allow one to be open at a time
   const toggleDropdown = (dropdownName) => {
     if (activeDropdown === dropdownName) {
-      setActiveDropdown(null); // Close if the same dropdown is clicked
+      setActiveDropdown(null);
     } else {
-      setActiveDropdown(dropdownName); // Open the clicked dropdown
+      setActiveDropdown(dropdownName);
     }
   };
 
@@ -97,6 +97,7 @@ const Header = () => {
                 <div className="absolute mt-2 w-48 bg-white rounded-md shadow-lg z-10">
                   <Link to="/build-routes" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Route Builder</Link>
                   <Link to="/route-map" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Route Map</Link>
+                  <Link to="/calendar" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Calendar</Link> {/* Added Calendar Link */}
                 </div>
               )}
             </div>
@@ -123,8 +124,7 @@ const Header = () => {
             <div className="relative">
               <button
                 onClick={() => toggleDropdown('tools')}
-                className="text-white px-3 py-2 rounded-md text-sm font-medium focus:outline-none flex items-center space-x-1"
-              >
+                className="text-white px-3 py-2 rounded-md text-sm font-medium focus:outline-none flex items-center space-x-1">
                 <span>Tools</span>
                 {activeDropdown === 'tools' ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
               </button>
