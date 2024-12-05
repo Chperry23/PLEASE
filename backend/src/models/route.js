@@ -1,3 +1,4 @@
+// src/models/route.js
 const mongoose = require('mongoose');
 
 const routeSchema = new mongoose.Schema({
@@ -30,7 +31,7 @@ const routeSchema = new mongoose.Schema({
   crew: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Crew'
-  }
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.models.Route || mongoose.model('Route', routeSchema);

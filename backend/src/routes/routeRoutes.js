@@ -1,17 +1,34 @@
+// src/routes/routeRoutes.js
 const express = require('express');
 const router = express.Router();
 const routeController = require('../controllers/routeController');
 const auth = require('../middleware/auth');
 
-router.get('/', auth, routeController.getRoutes);  // Get all routes
-router.get('/:day', auth, routeController.getRouteByDay);  // Get routes by day
-router.put('/:day/:index', auth, routeController.updateRoute);  // Update a specific route
-router.delete('/:day/:index', auth, routeController.deleteRoute);  // Delete a specific route
-router.get('/jobs/available', auth, routeController.getAvailableJobs);  // Get available jobs
-router.post('/:day/:routeIndex/complete', auth, routeController.completeRoute);  // Complete a route
-router.put('/', auth, routeController.updateAllRoutes);  // Update all routes
+// Get all routes
+router.get('/', auth, routeController.getRoutes);
 
-// Add this new route for assigning employees or crews to routes
-router.put('/:day/:index/assign', auth, routeController.assignRoute);  // Assign employee or crew to a route
+// Get routes by day
+router.get('/:day', auth, routeController.getRouteByDay);
+
+// Update a specific route
+router.put('/:day/:index', auth, routeController.updateRoute);
+
+// Delete a specific route
+router.delete('/:day/:index', auth, routeController.deleteRoute);
+
+// Get available jobs
+router.get('/jobs/available', auth, routeController.getAvailableJobs);
+
+// Complete a route
+router.post('/:day/:routeIndex/complete', auth, routeController.completeRoute);
+
+// Update all routes
+router.put('/', auth, routeController.updateAllRoutes);
+
+// Reschedule a route
+router.put('/:id/reschedule', auth, routeController.rescheduleRoute);
+
+// Assign employee or crew to a route
+router.put('/:day/:index/assign', auth, routeController.assignRoute);
 
 module.exports = router;

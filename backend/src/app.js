@@ -31,6 +31,7 @@ const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const userRoutes = require('./routes/userRoutes');
+const routeTagRoutes = require('./routes/routeTagRoutes');
 
 // Import passport configuration
 require('./config/passport');
@@ -101,6 +102,7 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api', routeTagRoutes);
 
 // CSV import route
 app.post('/api/customers/import', multer({ dest: 'temp/' }).single('file'), (req, res) => {

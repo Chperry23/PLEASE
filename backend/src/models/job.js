@@ -48,13 +48,15 @@ const jobSchema = new mongoose.Schema(
     /**
      * Status of the recurring job.
      */
+  // For recurringStatus
     recurringStatus: {
       type: String,
       enum: ['Active', 'Paused', 'Canceled'],
       default: 'Active',
-      required: true,
+      required: function() {  // Only required if job is recurring
+        return this.isRecurring;
+      }
     },
-
     /**
      * Day of the week when the job is scheduled.
      */
@@ -162,13 +164,14 @@ const jobSchema = new mongoose.Schema(
      * Recurrence pattern for the job.
      * Required if `isRecurring` is true.
      */
+// For recurrencePattern
     recurrencePattern: {
       type: String,
-      enum: ['Weekly', 'Bi-weekly', 'Monthly'],
+      enum: ['Weekly', 'Bi-weekly', 'Monthly', null],  // Add null to enum
       required: function () {
         return this.isRecurring;
       },
-      default: null,
+      default: null
     },
 
     /**

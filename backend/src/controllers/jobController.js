@@ -34,6 +34,22 @@ exports.createJob = async (req, res) => {
   }
 };
 
+exports.completeMultipleJobs = async (req, res) => {
+  const { jobIds } = req.body; // Array of job IDs
+
+  try {
+    await Job.updateMany(
+      { _id: { $in: jobIds }, createdBy: req.user._id },
+      { $set: { status: 'Completed', lastServiceDate: new Date() }, $inc: { completionCount: 1 } }
+    );
+
+    res.json({ message: 'Jobs marked as completed successfully' });
+  } catch (error) {
+    console.error('Error completing multiple jobs:', error);
+    res.status(500).json({ message: 'Error completing multiple jobs', error: error.message });
+  }
+};
+
 // In completeJob, remove the profile progress section:
 exports.completeJob = async (req, res) => {
   try {

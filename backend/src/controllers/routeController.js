@@ -18,7 +18,6 @@ const defaultRoutes = {
 
 exports.getRoutes = async (req, res) => {
   try {
-    console.log('Fetching routes for user:', req.user._id);
     const routes = await Route.find({ createdBy: req.user._id })
       .populate({
         path: 'jobs',
@@ -28,24 +27,60 @@ exports.getRoutes = async (req, res) => {
       .populate('employee', 'name')
       .populate('crew', 'name')
       .lean();
-    
+
     const formattedRoutes = DAYS_OF_WEEK.reduce((acc, day) => {
       const dayRoutes = routes.filter(route => route.day === day);
       acc[day] = dayRoutes.map(route => ({
         index: route.index,
-        name: route.name, // Include the name field here
+        name: route.name,
         jobs: route.jobs,
         employee: route.employee,
-        crew: route.crew
+        crew: route.crew,
       }));
       return acc;
     }, {});
 
-    console.log('Formatted routes:', JSON.stringify(formattedRoutes, null, 2));
     res.json({ routes: formattedRoutes });
   } catch (error) {
     console.error('Error in getRoutes:', error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.rescheduleRoute = async (req, res) => {
+  try {
+    const routeId = req.params.id;
+    const { dayOfWeek } = req.body; // e.g., 'Tuesday'
+
+    if (!DAYS_OF_WEEK.includes(dayOfWeek)) {
+      return res.status(400).json({ message: 'Invalid day of the week' });
+    }
+
+    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id });
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    const oldDay = route.day;
+    route.day = dayOfWeek;
+
+    // Adjust the route index for the new day
+    const maxIndex = await Route.countDocuments({ createdBy: req.user._id, day: dayOfWeek });
+    route.index = maxIndex;
+
+    await route.save();
+
+    // Adjust indexes of remaining routes on the old day
+    await Route.updateMany(
+      { createdBy: req.user._id, day: oldDay, index: { $gt: route.index } },
+      { $inc: { index: -1 } }
+    );
+
+    res.json({ message: 'Route rescheduled successfully', route });
+  } catch (error) {
+    console.error('Error rescheduling route:', error);
+    res.status(500).json({ message: 'Error rescheduling route', error: error.message });
   }
 };
 

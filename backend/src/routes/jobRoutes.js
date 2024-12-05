@@ -19,9 +19,11 @@ router.put('/:id', auth, jobController.updateJob);
 // Route to delete a job by ID
 router.delete('/:id', auth, jobController.deleteJob);
 
-// Additional routes (if needed)
-// e.g., Complete a job
+// Complete a job
 router.post('/:id/complete', auth, jobController.completeJob);
+
+// Complete multiple jobs
+router.post('/complete-multiple', auth, jobController.completeMultipleJobs);
 
 // Rate a job
 router.post('/:id/rate', auth, jobController.rateJob);
