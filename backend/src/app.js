@@ -25,7 +25,6 @@ const crewRoutes = require('./routes/crewRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
-const quoteRoutes = require('./routes/quoteRoutes');
 const profileRoutes = require('./routes/profileroutes'); // Corrected casing
 const routeRoutes = require('./routes/routeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -96,7 +95,6 @@ app.use('/api/crews', crewRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/services', serviceRoutes);
-app.use('/api/quotes', quoteRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/payment', paymentRoutes);

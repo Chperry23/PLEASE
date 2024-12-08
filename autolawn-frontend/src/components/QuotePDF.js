@@ -1,14 +1,11 @@
+// src/components/QuotePDF.js
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Image, PDFDownloadLink } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
 const styles = StyleSheet.create({
   page: { 
     padding: 30, 
     backgroundColor: '#ffffff' 
-  },
-  section: { 
-    margin: 10, 
-    padding: 10 
   },
   header: { 
     flexDirection: 'row', 
@@ -16,12 +13,12 @@ const styles = StyleSheet.create({
     marginBottom: 20 
   },
   logo: { 
-    width: 100, 
-    height: 100 
+    width: 80, 
+    height: 80 
   },
   businessInfo: { 
     fontSize: 10, 
-    alignItems: 'flex-end' 
+    textAlign: 'right'
   },
   title: { 
     fontSize: 24, 
@@ -43,11 +40,6 @@ const styles = StyleSheet.create({
   bold: { 
     fontWeight: 'bold' 
   },
-  row: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 5 
-  },
   table: { 
     display: 'table', 
     width: 'auto', 
@@ -68,131 +60,80 @@ const styles = StyleSheet.create({
     marginBottom: 5, 
     fontSize: 10 
   },
+  section: {
+    marginBottom: 20
+  }
 });
 
-const QuotePDF = ({ quote, customerInfo, type, businessInfo }) => {
+const QuotePDF = ({ quote, customerInfo, businessInfo }) => {
   const renderCustomerInfo = () => {
-    return Object.entries(customerInfo).map(([key, value]) => {
-      if (key === 'address') {
-        return Object.entries(value).map(([addressKey, addressValue]) => (
-          <Text key={addressKey} style={styles.text}>
-            <Text style={styles.bold}>{addressKey.charAt(0).toUpperCase() + addressKey.slice(1)}:</Text> {addressValue}
-          </Text>
-        ));
-      }
-      if (key !== '_id') {
-        return (
-          <Text key={key} style={styles.text}>
-            <Text style={styles.bold}>{key.charAt(0).toUpperCase() + key.slice(1)}:</Text> {value}
-          </Text>
-        );
-      }
-      return null;
-    });
+    return (
+      <>
+        <Text style={styles.text}><Text style={styles.bold}>Name:</Text> {customerInfo.name}</Text>
+        <Text style={styles.text}><Text style={styles.bold}>Email:</Text> {customerInfo.email}</Text>
+        <Text style={styles.text}><Text style={styles.bold}>Phone:</Text> {customerInfo.phone}</Text>
+        <Text style={styles.text}><Text style={styles.bold}>Address:</Text> {customerInfo.address.street}, {customerInfo.address.city}, {customerInfo.address.state} {customerInfo.address.zipCode}</Text>
+      </>
+    );
   };
 
-  const renderPricingTable = () => {
-    if (quote.lineItems && quote.lineItems.length > 0) {
-      return (
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>Service</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>Description</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>Price</Text></View>
-          </View>
-          {quote.lineItems.map((item, index) => (
-            <View key={index} style={styles.tableRow}>
-              <View style={styles.tableCol}><Text style={styles.tableCell}>{item.service}</Text></View>
-              <View style={styles.tableCol}><Text style={styles.tableCell}>{item.description}</Text></View>
-              <View style={styles.tableCol}><Text style={styles.tableCell}>${item.price.toFixed(2)}</Text></View>
-            </View>
-          ))}
+  const renderLineItems = () => {
+    if (!quote.lineItems || quote.lineItems.length === 0) return null;
+
+    return (
+      <View style={styles.table}>
+        <View style={styles.tableRow}>
+          <View style={styles.tableCol}><Text style={styles.tableCell}>Service</Text></View>
+          <View style={styles.tableCol}><Text style={styles.tableCell}>Description</Text></View>
+          <View style={styles.tableCol}><Text style={styles.tableCell}>Price</Text></View>
         </View>
-      );
-    } else {
-      // Fallback to display basic pricing information
-      return (
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>Service</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>Price</Text></View>
+        {quote.lineItems.map((item, index) => (
+          <View key={index} style={styles.tableRow}>
+            <View style={styles.tableCol}><Text style={styles.tableCell}>{item.service}</Text></View>
+            <View style={styles.tableCol}><Text style={styles.tableCell}>{item.description}</Text></View>
+            <View style={styles.tableCol}><Text style={styles.tableCell}>${item.price.toFixed(2)}</Text></View>
           </View>
-          <View style={styles.tableRow}>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>{type.replace('_', ' ')}</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>${quote.totalPrice}</Text></View>
-          </View>
-        </View>
-      );
-    }
+        ))}
+      </View>
+    );
   };
 
-  const validUntil = new Date();
-  validUntil.setDate(validUntil.getDate() + 30);
+  const modeLabel = quote.mode === 'commercial' ? 'Commercial' : 'Residential';
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          {businessInfo.logo && <Image style={styles.logo} src={businessInfo.logo} />}
+          {businessInfo.logo ? <Image style={styles.logo} src={businessInfo.logo} /> : <View />}
           <View style={styles.businessInfo}>
-            <Text>{businessInfo.name || 'Company Name'}</Text>
-            <Text>{businessInfo.address || 'Company Address'}</Text>
-            <Text>{businessInfo.phone || 'Company Phone'}</Text>
-            <Text>{businessInfo.email || 'Company Email'}</Text>
-            <Text>{businessInfo.website || 'Company Website'}</Text>
+            <Text>{businessInfo.name}</Text>
+            <Text>{businessInfo.address}</Text>
+            <Text>{businessInfo.phone}</Text>
+            <Text>{businessInfo.email}</Text>
+            <Text>{businessInfo.website}</Text>
           </View>
         </View>
         <Text style={styles.title}>Quote #{quote._id}</Text>
+
         <View style={styles.section}>
           <Text style={styles.subheader}>Customer Information</Text>
           {renderCustomerInfo()}
         </View>
+
         <View style={styles.section}>
-          <Text style={styles.subheader}>Service Details</Text>
-          <Text style={styles.text}>
-            <Text style={styles.bold}>Service Type:</Text> {type.replace('_', ' ')}
-          </Text>
-          <Text style={styles.text}>
-            <Text style={styles.bold}>Area:</Text> {quote.area} sq ft
-          </Text>
+          <Text style={styles.subheader}>Details</Text>
+          <Text style={styles.text}><Text style={styles.bold}>Mode:</Text> {modeLabel}</Text>
+          {renderLineItems()}
+          <Text style={[styles.text, {marginTop:10}]}><Text style={styles.bold}>Total:</Text> ${quote.totalPrice.toFixed(2)}</Text>
         </View>
+
         <View style={styles.section}>
-          <Text style={styles.subheader}>Pricing</Text>
-          {renderPricingTable()}
-          <View style={[styles.row, { marginTop: 10 }]}>
-            <Text style={styles.bold}>Total Price:</Text>
-            <Text style={styles.bold}>${quote.totalPrice}</Text>
-          </View>
+          <Text style={styles.subheader}>Expiration & Terms</Text>
+          <Text style={styles.text}><Text style={styles.bold}>Valid Until:</Text> {quote.expirationDate}</Text>
+          <Text style={styles.text}><Text style={styles.bold}>Terms:</Text> {quote.terms}</Text>
         </View>
-        <Text style={[styles.text, { marginTop: 20 }]}>
-          This quote is valid until {validUntil.toLocaleDateString()}.
-        </Text>
       </Page>
     </Document>
-  );
-};
-
-export const QuoteDownloadLink = ({ quote, customerInfo, type, businessInfo }) => {
-  if (!quote || !customerInfo || !type || !businessInfo) {
-    console.error('Missing required props for QuoteDownloadLink');
-    return null;
-  }
-
-  return (
-    <PDFDownloadLink
-      document={<QuotePDF quote={quote} customerInfo={customerInfo} type={type} businessInfo={businessInfo} />}
-      fileName="quote.pdf"
-      className="bg-indigo-600 text-white px-4 py-2 rounded mt-4 inline-block hover:bg-indigo-500"
-    >
-      {({ blob, url, loading, error }) => {
-        if (loading) return 'Generating document...';
-        if (error) {
-          console.error('Error generating PDF:', error);
-          return 'Error generating PDF';
-        }
-        return 'Download PDF';
-      }}
-    </PDFDownloadLink>
   );
 };
 

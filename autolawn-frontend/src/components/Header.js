@@ -130,7 +130,7 @@ const Header = () => {
               </button>
               {activeDropdown === 'tools' && (
                 <div className="absolute mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                  <Link to="/quote-tool" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Quoting Tool</Link>
+                  <Link to="/quote-builder" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Quote Builder</Link>
                   <Link to="/generate-report" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Generate Report</Link>
                 </div>
               )}

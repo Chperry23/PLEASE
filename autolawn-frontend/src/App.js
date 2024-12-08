@@ -28,7 +28,7 @@ import ManageCustomers from './pages/ManageCustomers';
 import Profile from './pages/Profile';
 import ManageEmployees from './pages/ManageEmployees';
 import Employee from './pages/Employee';
-import QuoteTool from './components/QuoteTool';
+import QuoteBuilder from './components/QuoteBuilder'; // Updated import
 import BuildRoutes from './pages/BuildRoutes';
 import RouteAssignments from './pages/RouteAssignments';
 import RouteMap from './pages/RouteMap';
@@ -111,9 +111,9 @@ function App() {
                 <ManageJobs />
               </ProtectedRoute>
             } />
-            <Route path="/quote-tool" element={
+            <Route path="/quote-builder" element={
               <ProtectedRoute>
-                <QuoteTool />
+                <QuoteBuilder />
               </ProtectedRoute>
             } />
 
