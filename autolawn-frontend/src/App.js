@@ -33,6 +33,7 @@ import BuildRoutes from './pages/BuildRoutes';
 import RouteAssignments from './pages/RouteAssignments';
 import RouteMap from './pages/RouteMap';
 import SendNotifications from './pages/SendNotifications';
+import MaterialCalculator from './pages/MaterialCalculator'; // Adjust path as needed
 
 // **Import the Calendar Page**
 import CalendarPage from './pages/Calendar'; // Adjust the path if necessary
@@ -75,7 +76,13 @@ function App() {
                 <Dashboard />
               </ProtectedRoute>
             } />
-            
+
+            <Route path="/material-calculator" element={
+	      <ProtectedRoute>
+   	        <MaterialCalculator />
+ 	      </ProtectedRoute>
+	    } />
+
             {/* Route Management */}
             <Route path="/route-assignments" element={
               <ProtectedRoute>
