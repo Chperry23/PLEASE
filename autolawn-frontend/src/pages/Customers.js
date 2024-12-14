@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import axiosInstance from '../utils/axiosInstance'; // Use axiosInstance
+import axiosInstance from '../utils/axiosInstance'; 
 import { PlusIcon, ArrowUpOnSquareIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import Header from '../components/Header';
 import InputMask from 'react-input-mask';
 import Select from 'react-select';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
+import { FaInfoCircle } from 'react-icons/fa';
 
 // Full list of U.S. states
 const stateOptions = [
@@ -60,6 +61,15 @@ const stateOptions = [
   { value: 'WY', label: 'Wyoming' },
 ];
 
+const InfoTooltip = ({ text }) => (
+  <div className="relative inline-block group ml-1 text-gray-400 cursor-pointer">
+    <FaInfoCircle />
+    <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-sm p-2 rounded shadow-lg w-48 z-10">
+      {text}
+    </div>
+  </div>
+);
+
 const Customers = () => {
   const [customer, setCustomer] = useState({
     name: '',
@@ -73,8 +83,8 @@ const Customers = () => {
     },
     notes: '',
     status: 'Active',
-    yardSize: '', // Added field
-    landscapingPotential: false // Added field
+    yardSize: '',
+    landscapingPotential: false
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -92,14 +102,12 @@ const Customers = () => {
   const handlePlaceChanged = () => {
     if (autocomplete !== null) {
       const place = autocomplete.getPlace();
-
-      // Extract address components
       const addressComponents = place.address_components;
-      const streetNumber = addressComponents.find(component => component.types.includes('street_number'))?.long_name || '';
-      const route = addressComponents.find(component => component.types.includes('route'))?.long_name || '';
-      const city = addressComponents.find(component => component.types.includes('locality') || component.types.includes('sublocality'))?.long_name || '';
-      const state = addressComponents.find(component => component.types.includes('administrative_area_level_1'))?.short_name || '';
-      const zipCode = addressComponents.find(component => component.types.includes('postal_code'))?.long_name || '';
+      const streetNumber = addressComponents.find(c => c.types.includes('street_number'))?.long_name || '';
+      const route = addressComponents.find(c => c.types.includes('route'))?.long_name || '';
+      const city = addressComponents.find(c => c.types.includes('locality') || c.types.includes('sublocality'))?.long_name || '';
+      const state = addressComponents.find(c => c.types.includes('administrative_area_level_1'))?.short_name || '';
+      const zipCode = addressComponents.find(c => c.types.includes('postal_code'))?.long_name || '';
 
       setCustomer(prev => ({
         ...prev,
@@ -121,10 +129,10 @@ const Customers = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked } = e.target || {};
     if (type === 'checkbox') {
       setCustomer(prev => ({ ...prev, [name]: checked }));
-    } else if (name.includes('.')) {
+    } else if (name && name.includes('.')) {
       const [parent, child] = name.split('.');
       setCustomer(prev => ({
         ...prev,
@@ -145,8 +153,7 @@ const Customers = () => {
     setLoading(true);
 
     try {
-      await axiosInstance.post('/customers', customer, {
-      });
+      await axiosInstance.post('/customers', customer);
       setSuccess('Customer added successfully!');
       setCustomer({
         name: '',
@@ -154,7 +161,9 @@ const Customers = () => {
         phone: '',
         address: { street: '', city: '', state: '', zipCode: '' },
         notes: '',
-        status: 'Active'
+        status: 'Active',
+        yardSize: '',
+        landscapingPotential: false
       });
     } catch (error) {
       console.error('Error creating customer:', error);
@@ -177,17 +186,18 @@ const Customers = () => {
     try {
       await axiosInstance.post('/customers/import', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'        } });
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       setSuccess('Customers imported successfully!');
       setCsvFile(null);
     } catch (error) {
       console.error('Error importing customers:', error);
-      setError('Failed to import customers. Please try again.');
+      setError('Failed to import customers. Ensure the CSV format is correct and all required fields are present.');
     }
     setLoading(false);
   };
 
-  // Custom styles for react-select
   const customSelectStyles = {
     control: (provided) => ({
       ...provided,
@@ -233,11 +243,9 @@ const Customers = () => {
               {success}
             </div>
           )}
-
-          <div className="bg-surface overflow-hidden shadow rounded-lg p-6 mb-6">
+ <div className="bg-surface overflow-hidden shadow rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Add New Customer</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium">
                   Name <span className="text-red-500">*</span>
@@ -248,11 +256,10 @@ const Customers = () => {
                   name="name"
                   value={customer.name}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
                   required
                 />
               </div>
-              {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium">
                   Email <span className="text-red-500">*</span>
@@ -263,49 +270,40 @@ const Customers = () => {
                   name="email"
                   value={customer.email}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
                   required
                 />
               </div>
-              {/* Phone */}
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium">
                   Phone <span className="text-red-500">*</span>
                 </label>
-                <InputMask
-                  mask="(999) 999-9999"
-                  value={customer.phone}
-                  onChange={handleChange}
-                >
+                <InputMask mask="(999) 999-9999" value={customer.phone} onChange={handleChange}>
                   {(inputProps) => (
                     <input
                       {...inputProps}
                       type="tel"
                       id="phone"
                       name="phone"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                      className="mt-1 block w-full rounded-md border-gray-300 text-black"
                       required
                     />
                   )}
                 </InputMask>
               </div>
-              {/* Street Address with Autocomplete */}
               <div>
                 <label htmlFor="address.street" className="block text-sm font-medium">
                   Address <span className="text-red-500">*</span>
                 </label>
                 {isLoaded && (
-                  <Autocomplete
-                    onLoad={onLoadAutocomplete}
-                    onPlaceChanged={handlePlaceChanged}
-                  >
+                  <Autocomplete onLoad={onLoadAutocomplete} onPlaceChanged={handlePlaceChanged}>
                     <input
                       type="text"
                       id="address.street"
                       name="address.street"
                       value={customer.address.street}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                      className="mt-1 block w-full rounded-md border-gray-300 text-black"
                       required
                     />
                   </Autocomplete>
@@ -317,12 +315,11 @@ const Customers = () => {
                     name="address.street"
                     value={customer.address.street}
                     onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                    className="mt-1 block w-full rounded-md border-gray-300 text-black"
                     required
                   />
                 )}
               </div>
-              {/* City */}
               <div>
                 <label htmlFor="address.city" className="block text-sm font-medium">
                   City <span className="text-red-500">*</span>
@@ -333,11 +330,10 @@ const Customers = () => {
                   name="address.city"
                   value={customer.address.city}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
                   required
                 />
               </div>
-              {/* State */}
               <div>
                 <label htmlFor="address.state" className="block text-sm font-medium">
                   State <span className="text-red-500">*</span>
@@ -355,7 +351,6 @@ const Customers = () => {
                   required
                 />
               </div>
-              {/* Zip Code */}
               <div>
                 <label htmlFor="address.zipCode" className="block text-sm font-medium">
                   Zip Code <span className="text-red-500">*</span>
@@ -366,11 +361,10 @@ const Customers = () => {
                   name="address.zipCode"
                   value={customer.address.zipCode}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
                   required
                 />
               </div>
-              {/* Notes */}
               <div className="md:col-span-2">
                 <label htmlFor="notes" className="block text-sm font-medium">Notes</label>
                 <textarea
@@ -379,10 +373,9 @@ const Customers = () => {
                   value={customer.notes}
                   onChange={handleChange}
                   rows="3"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
                 ></textarea>
               </div>
-              {/* Status */}
               <div>
                 <label htmlFor="status" className="block text-sm font-medium">Status</label>
                 <select
@@ -390,14 +383,40 @@ const Customers = () => {
                   name="status"
                   value={customer.status}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 text-black"
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
                 >
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                   <option value="Discontinued">Discontinued</option>
                 </select>
               </div>
-              {/* Submit Button */}
+              {/* yardSize and landscapingPotential fields */}
+              <div>
+                <label htmlFor="yardSize" className="block text-sm font-medium">Yard Size (optional)</label>
+                <input
+                  type="text"
+                  id="yardSize"
+                  name="yardSize"
+                  value={customer.yardSize}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 text-black"
+                  placeholder="e.g., Large, 1 acre, etc."
+                />
+              </div>
+              <div className="flex items-center">
+                <label htmlFor="landscapingPotential" className="block text-sm font-medium mr-2">
+                  Landscaping Potential?
+                </label>
+                <input
+                  type="checkbox"
+                  id="landscapingPotential"
+                  name="landscapingPotential"
+                  checked={customer.landscapingPotential}
+                  onChange={handleChange}
+                  className="h-5 w-5 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <button
                   type="submit"
@@ -411,9 +430,11 @@ const Customers = () => {
             </form>
           </div>
 
-          {/* CSV Import Section */}
           <div className="bg-surface overflow-hidden shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Import Customers from CSV</h2>
+            <div className="flex items-center mb-4">
+              <h2 className="text-xl font-semibold">Import Customers from CSV</h2>
+              <InfoTooltip text="Upload a CSV with required fields. Click 'CSV Format Info' for details." />
+            </div>
             <form onSubmit={handleCsvUpload} className="space-y-4">
               <div>
                 <label htmlFor="csvFile" className="block text-sm font-medium">Select CSV File</label>
@@ -445,7 +466,6 @@ const Customers = () => {
             </div>
           </div>
 
-          {/* CSV Format Modal */}
           {showCsvFormat && (
             <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
               <div className="flex items-center justify-center min-h-screen">
@@ -457,37 +477,41 @@ const Customers = () => {
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-700">
-                        Please ensure your CSV file is formatted as follows:
+                        Required columns: <strong>name, email, phone, street, city, state, zipCode</strong><br/>
+                        Optional columns: <strong>notes, yardSize, landscapingPotential</strong> (if landscapingPotential provided, use 'true' or 'false').
                       </p>
-                      <table className="mt-2 bg-gray-100 p-2 rounded-md w-full text-center">
+                      <table className="mt-2 bg-gray-100 p-2 rounded-md w-full text-center text-xs">
                         <thead>
                           <tr>
-                            <th className="border px-1 py-1 text-xs">name</th>
-                            <th className="border px-1 py-1 text-xs">email</th>
-                            <th className="border px-1 py-1 text-xs">phone</th>
-                            <th className="border px-1 py-1 text-xs">street</th>
-                            <th className="border px-1 py-1 text-xs">city</th>
-                            <th className="border px-1 py-1 text-xs">state</th>
-                            <th className="border px-1 py-1 text-xs">zipCode</th>
-                            <th className="border px-1 py-1 text-xs">notes</th>
+                            <th className="border px-1 py-1">name</th>
+                            <th className="border px-1 py-1">email</th>
+                            <th className="border px-1 py-1">phone</th>
+                            <th className="border px-1 py-1">street</th>
+                            <th className="border px-1 py-1">city</th>
+                            <th className="border px-1 py-1">state</th>
+                            <th className="border px-1 py-1">zipCode</th>
+                            <th className="border px-1 py-1">notes</th>
+                            <th className="border px-1 py-1">yardSize</th>
+                            <th className="border px-1 py-1">landscapingPotential</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            <td className="border px-1 py-1 text-xs">John Doe</td>
-                            <td className="border px-1 py-1 text-xs">john@example.com</td>
-                            <td className="border px-1 py-1 text-xs">(123) 456-7890</td>
-                            <td className="border px-1 py-1 text-xs">123 Main St</td>
-                            <td className="border px-1 py-1 text-xs">Anytown</td>
-                            <td className="border px-1 py-1 text-xs">CA</td>
-                            <td className="border px-1 py-1 text-xs">12345</td>
-                            <td className="border px-1 py-1 text-xs">Sample note</td>
+                            <td className="border px-1 py-1">John Doe</td>
+                            <td className="border px-1 py-1">john@example.com</td>
+                            <td className="border px-1 py-1">(123) 456-7890</td>
+                            <td className="border px-1 py-1">123 Main St</td>
+                            <td className="border px-1 py-1">Anytown</td>
+                            <td className="border px-1 py-1">CA</td>
+                            <td className="border px-1 py-1">12345</td>
+                            <td className="border px-1 py-1">Customer note</td>
+                            <td className="border px-1 py-1">Large Yard</td>
+                            <td className="border px-1 py-1">true</td>
                           </tr>
-                          {/* Add more example rows if needed */}
                         </tbody>
                       </table>
                       <p className="text-sm text-gray-700 mt-2">
-                        Only the <strong>'name'</strong>, <strong>'email'</strong>, <strong>'phone'</strong>, <strong>'street'</strong>, <strong>'city'</strong>, <strong>'state'</strong>, and <strong>'zipCode'</strong> fields are required. The <strong>'notes'</strong> field is optional.
+                        The fields <strong>yardSize</strong> and <strong>landscapingPotential</strong> are optional. If landscapingPotential is provided, use 'true' or 'false' to indicate it.
                       </p>
                     </div>
                   </div>
@@ -504,6 +528,7 @@ const Customers = () => {
               </div>
             </div>
           )}
+
         </div>
       </main>
     </div>
