@@ -1,5 +1,6 @@
-// src/models/route.js
 const mongoose = require('mongoose');
+
+const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const routeSchema = new mongoose.Schema({
   createdBy: {
@@ -7,14 +8,10 @@ const routeSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  day: {
+  dayOfWeek: {
     type: String,
     required: true,
-    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-  },
-  index: {
-    type: Number,
-    required: true
+    enum: DAYS_OF_WEEK
   },
   name: {
     type: String,
@@ -26,12 +23,14 @@ const routeSchema = new mongoose.Schema({
   }],
   employee: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Employee'
+    ref: 'Employee',
+    default: null
   },
   crew: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Crew'
-  },
+    ref: 'Crew',
+    default: null
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.models.Route || mongoose.model('Route', routeSchema);

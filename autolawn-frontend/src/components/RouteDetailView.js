@@ -31,6 +31,22 @@ const RouteDetailView = ({ route, date, onClose, onPushRoute, onDataChange }) =>
     }
   };
 
+const handlePushRoute = async (interval, unit, type, jobId = null) => {
+  const delta = unit === 'day' ? interval : interval * 7;
+
+  if (type === 'single' && jobId) {
+    await axiosInstance.put(`/routes/${route._id}/reschedule`, { delta });
+  } else {
+    const confirmation = window.confirm("Push future events in the series?");
+    if (confirmation) {
+      await axiosInstance.put(`/routes/${route._id}/reschedule-series`, { delta });
+    }
+  }
+
+  onDataChange();
+};
+
+
   const handlePush = (interval, unit, type, jobId = null) => {
     onPushRoute(interval, unit, type, jobId);
     setPushOptions({ show: false, selectedJob: null });

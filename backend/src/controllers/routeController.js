@@ -1,81 +1,236 @@
-const mongoose = require('mongoose');
 const Route = require('../models/route');
 const Job = require('../models/job');
+const mongoose = require('mongoose');
+
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const defaultRoutes = {
-  Monday: [[]],
-  Tuesday: [[]],
-  Wednesday: [[]],
-  Thursday: [[]],
-  Friday: [[]],
-  Saturday: [[]],
-  Sunday: [[]],
-};
-
-// Function to get all routes
-// In routeController.js
-
-exports.getRoutes = async (req, res) => {
+/**
+ * GET /routes
+ * Returns all routes grouped by day of the week.
+ * {
+ *   "routes": {
+ *     "Monday": [ { ...route }, ... ],
+ *     "Tuesday": [ { ...route }, ... ],
+ *     ...
+ *   }
+ * }
+ */
+exports.getAllRoutesGroupedByDay = async (req, res) => {
   try {
     const routes = await Route.find({ createdBy: req.user._id })
       .populate({
         path: 'jobs',
-        match: { status: { $ne: 'Completed' } },
         populate: { path: 'customer', select: 'name' }
       })
       .populate('employee', 'name')
       .populate('crew', 'name')
       .lean();
 
-    const formattedRoutes = DAYS_OF_WEEK.reduce((acc, day) => {
-      const dayRoutes = routes.filter(route => route.day === day);
-      acc[day] = dayRoutes.map(route => ({
-        index: route.index,
-        name: route.name,
-        jobs: route.jobs,
-        employee: route.employee,
-        crew: route.crew,
-      }));
+    const grouped = DAYS_OF_WEEK.reduce((acc, day) => {
+      acc[day] = routes.filter(r => r.dayOfWeek === day);
       return acc;
     }, {});
 
-    res.json({ routes: formattedRoutes });
+    res.json({ routes: grouped });
   } catch (error) {
-    console.error('Error in getRoutes:', error);
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching all routes:', error);
+    res.status(500).json({ message: 'Failed to fetch routes', error: error.message });
   }
 };
 
-exports.rescheduleRoute = async (req, res) => {
-  try {
-    const routeId = req.params.id;
-    const { dayOfWeek } = req.body; // e.g., 'Tuesday'
+exports.rescheduleSeries = async (req, res) => {
+  const { id } = req.params;
+  const { delta } = req.body;
 
+  const route = await Route.findById(id);
+  route.jobs.forEach((job) => {
+    job.nextScheduledDate = addDays(new Date(job.nextScheduledDate), delta);
+    job.save();
+  });
+
+  res.json({ message: 'Series rescheduled successfully.' });
+};
+
+
+/**
+ * POST /routes
+ * Create a new route with given dayOfWeek and name.
+ * Request body: { dayOfWeek: "Monday", name: "Route 1" }
+ */
+exports.createRoute = async (req, res) => {
+  try {
+    const { dayOfWeek, name } = req.body;
     if (!DAYS_OF_WEEK.includes(dayOfWeek)) {
-      return res.status(400).json({ message: 'Invalid day of the week' });
+      return res.status(400).json({ message: 'Invalid dayOfWeek' });
     }
 
-    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id });
+    const route = await Route.create({
+      createdBy: req.user._id,
+      dayOfWeek,
+      name,
+      jobs: []
+    });
 
+    res.json({ route });
+  } catch (error) {
+    console.error('Error creating route:', error);
+    res.status(500).json({ message: 'Failed to create route', error: error.message });
+  }
+};
+
+/**
+ * POST /routes/:routeId/jobs
+ * Add a job to a route.
+ * Request body: { jobId: "someJobId", startDate?: "YYYY-MM-DD" }
+ */
+exports.addJobToRoute = async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const { jobId, startDate } = req.body;
+
+    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id });
     if (!route) {
       return res.status(404).json({ message: 'Route not found' });
     }
 
-    const oldDay = route.day;
-    route.day = dayOfWeek;
+    const job = await Job.findOne({ _id: jobId, createdBy: req.user._id });
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
 
-    // Adjust the route index for the new day
-    const maxIndex = await Route.countDocuments({ createdBy: req.user._id, day: dayOfWeek });
-    route.index = maxIndex;
+    // If job is recurring and no lastServiceDate is set, use startDate if provided
+    if (job.isRecurring && !job.lastServiceDate && startDate) {
+      job.lastServiceDate = new Date(startDate);
+      await job.save();
+    }
 
+    // Add job to route
+    route.jobs.push(job._id);
     await route.save();
 
-    // Adjust indexes of remaining routes on the old day
-    await Route.updateMany(
-      { createdBy: req.user._id, day: oldDay, index: { $gt: route.index } },
-      { $inc: { index: -1 } }
+    res.json({ message: 'Job added to route', route });
+  } catch (error) {
+    console.error('Error adding job to route:', error);
+    res.status(500).json({ message: 'Failed to add job to route', error: error.message });
+  }
+};
+
+/**
+ * POST /routes/:routeId/push
+ * Push a route's scheduled jobs forward.
+ * Request body: { interval: number, unit: "day" or "week" }
+ */
+exports.pushRoute = async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const { interval, unit, adjustRecurrence } = req.body;
+    // adjustRecurrence: boolean to decide if pushing route updates future recurrence patterns or just occurrences
+
+    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id }).populate('jobs');
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    let daysToPush = interval;
+    if (unit === 'week') {
+      daysToPush = interval * 7;
+    } else if (unit !== 'day') {
+      return res.status(400).json({ message: 'Invalid unit, must be "day" or "week"' });
+    }
+
+    // If route is on Monday and we push by 1 day, it becomes Tuesday:
+    // Find current index of route.dayOfWeek in DAYS_OF_WEEK, shift by daysToPush mod 7
+    const currentIndex = DAYS_OF_WEEK.indexOf(route.dayOfWeek);
+    // A simple approach: pushing a route by days might just move its dayOfWeek in a simple manner:
+    const newIndex = (currentIndex + daysToPush) % 7;
+    route.dayOfWeek = DAYS_OF_WEEK[newIndex];
+
+    // Update each job's lastServiceDate or scheduledDay
+    for (const job of route.jobs) {
+      if (job.lastServiceDate) {
+        const newDate = new Date(job.lastServiceDate);
+        newDate.setDate(newDate.getDate() + daysToPush);
+        job.lastServiceDate = newDate;
+        if (adjustRecurrence && job.isRecurring) {
+          // Adjust future occurrences
+          // Logic depends on how you define recurrence. For simplicity:
+          job.lastServiceDate = newDate;
+        }
+        await job.save();
+      }
+    }
+
+    await route.save();
+    res.json({ message: 'Route pushed successfully', route });
+  } catch (error) {
+    console.error('Error pushing route:', error);
+    res.status(500).json({ message: 'Failed to push route', error: error.message });
+  }
+};
+
+/**
+ * POST /routes/:routeId/complete
+ * Complete all due jobs in the route.
+ * This logic depends on how you determine which jobs are "due" on this route's day.
+ * For simplicity, let's just mark all jobs in this route as completed.
+ */
+const { isJobDueOnDate } = require('../utils/recurrence');
+
+exports.completeRoute = async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const { date } = req.body; // Expect a date parameter to know which occurrence is being completed.
+    if (!date) return res.status(400).json({ message: 'date parameter is required' });
+
+    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id }).populate('jobs');
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    const targetDate = new Date(date);
+    const dueJobs = route.jobs.filter(job => isJobDueOnDate(job, targetDate));
+
+    const dueJobIds = dueJobs.map(j => j._id);
+    await Job.updateMany(
+      { _id: { $in: dueJobIds } },
+      { $set: { status: 'Completed', lastServiceDate: new Date() }, $inc: { completionCount: 1 } }
     );
+
+    // Remove one-time completed jobs from route
+    const completedOneTimeJobIds = dueJobs
+      .filter(j => !j.isRecurring)
+      .map(j => j._id.toString());
+
+    route.jobs = route.jobs.filter(j => !completedOneTimeJobIds.includes(j._id.toString()));
+    await route.save();
+
+    res.json({ message: 'Route completed successfully', completedCount: dueJobIds.length });
+  } catch (error) {
+    res.status(500).json({ message: 'Error completing route', error: error.message });
+  }
+};
+
+/**
+ * PUT /routes/:routeId/reschedule
+ * Change the route's dayOfWeek.
+ * Request body: { dayOfWeek: "Tuesday" }
+ */
+exports.rescheduleRoute = async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const { dayOfWeek } = req.body;
+
+    if (!DAYS_OF_WEEK.includes(dayOfWeek)) {
+      return res.status(400).json({ message: 'Invalid dayOfWeek' });
+    }
+
+    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id });
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    route.dayOfWeek = dayOfWeek;
+    await route.save();
 
     res.json({ message: 'Route rescheduled successfully', route });
   } catch (error) {
@@ -84,182 +239,17 @@ exports.rescheduleRoute = async (req, res) => {
   }
 };
 
-exports.getAvailableJobs = async (req, res) => {
-  try {
-    console.log('Fetching available jobs');
-    
-    // Find all routes to exclude already scheduled jobs
-    const routes = await Route.find({ createdBy: req.user._id });
-    const scheduledJobIds = routes.flatMap(route => route.jobs);
-
-    const now = new Date();
-    
-    // Find jobs that meet the criteria for the job pool
-    const jobs = await Job.find({
-      createdBy: req.user._id,
-      _id: { $nin: scheduledJobIds },
-      status: { $in: ['Pending', 'Scheduled'] },
-      $or: [
-        { isRecurring: false },
-        {
-          isRecurring: true,
-          recurrencePattern: 'Weekly',
-          lastServiceDate: { $lt: new Date(now - 3 * 24 * 60 * 60 * 1000) }
-        },
-        {
-          isRecurring: true,
-          recurrencePattern: 'Bi-weekly',
-          lastServiceDate: { $lt: new Date(now - 10 * 24 * 60 * 60 * 1000) }
-        },
-        {
-          isRecurring: true,
-          recurrencePattern: 'Monthly',
-          lastServiceDate: { $lt: new Date(now - 25 * 24 * 60 * 60 * 1000) }
-        }
-      ]
-    }).populate('customer', 'name');
-
-    console.log('Available jobs:', JSON.stringify(jobs, null, 2));
-    res.json(jobs);
-  } catch (error) {
-    console.error('Error in getAvailableJobs:', error);
-    res.status(500).json({ message: 'Error fetching available jobs', error: error.message });
-  }
-};
-
-// Function to get routes for a specific day
-exports.getRouteByDay = async (req, res) => {
-  try {
-    console.log(`Fetching routes for day: ${req.params.day}`);
-    const routes = await Route.find({ createdBy: req.user._id, day: req.params.day }).populate({
-      path: 'jobs',
-      populate: { path: 'customer', select: 'name' }
-    });
-    console.log(`Routes for ${req.params.day}:`, JSON.stringify(routes, null, 2));
-    res.json(routes.length ? routes : [{ day: req.params.day, jobs: [] }]);
-  } catch (error) {
-    console.error('Error in getRouteByDay:', error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.deleteRoute = async (req, res) => {
-  try {
-    const { day, index } = req.params;
-    console.log(`Deleting route for day: ${day}, index: ${index}`);
-    
-    const deletedRoute = await Route.findOneAndDelete({
-      createdBy: req.user._id,
-      day,
-      index: parseInt(index, 10),
-    });
-
-    if (!deletedRoute) {
-      return res.status(404).json({ message: 'Route not found' });
-    }
-
-    // Update indexes of remaining routes
-    await Route.updateMany(
-      {
-        createdBy: req.user._id,
-        day,
-        index: { $gt: parseInt(index, 10) },
-      },
-      { $inc: { index: -1 } }
-    );
-
-    res.json({ message: 'Route deleted successfully' });
-  } catch (error) {
-    console.error('Error in deleteRoute:', error);
-    res.status(500).json({ message: 'Failed to delete route', error: error.message });
-  }
-};
-
-// Function to update a specific route
-exports.updateRoute = async (req, res) => {
-  try {
-    console.log(`Updating route for day: ${req.params.day}, index: ${req.params.index}`);
-    const { jobs, employee, crew, name } = req.body;  // Use 'name' instead of 'routeName'
-    const { day, index } = req.params;
-
-    if (!Array.isArray(jobs)) {
-      return res.status(400).json({ message: 'Invalid jobs data' });
-    }
-
-    // Find the route by day and index
-    let route = await Route.findOne({ createdBy: req.user._id, day, index: parseInt(index, 10) });
-
-    if (!route) {
-      // Create a new route if none exists
-      route = new Route({
-        createdBy: req.user._id,
-        day,
-        index: parseInt(index, 10),
-        jobs: jobs.map(job => job._id || job),
-        employee: employee || null,
-        crew: crew || null,
-        name: name || `Route ${index}`, // Use 'name' here
-      });
-    } else {
-      // Update the existing route
-      route.jobs = jobs.map(job => job._id || job);
-      route.employee = employee || null;
-      route.crew = crew || null;
-      route.name = name || route.name;  // Use 'name' instead of 'routeName'
-    }
-
-    // Save the route
-    await route.save();
-    console.log('Updated route:', JSON.stringify(route, null, 2));
-    res.json(route);
-  } catch (error) {
-    console.error('Error in updateRoute:', error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-// Function to complete a route
-exports.completeRoute = async (req, res) => {
-  try {
-    console.log(`Completing route for day: ${req.params.day}, index: ${req.params.routeIndex}`);
-    const { day, routeIndex } = req.params;
-    const route = await Route.findOne({ createdBy: req.user._id, day, index: routeIndex });
-
-    if (!route) {
-      return res.status(404).json({ message: 'Route not found' });
-    }
-
-    const updateResult = await Job.updateMany(
-      { _id: { $in: route.jobs } },
-      { 
-        $set: { status: 'Completed', lastServiceDate: new Date() },
-        $inc: { completionCount: 1 }
-      }
-    );
-
-    route.jobs = [];
-    await route.save();
-
-    console.log(`Completed route. Updated ${updateResult.nModified} jobs.`);
-    res.json({ message: 'Route completed successfully' });
-  } catch (error) {
-    console.error('Error in completeRoute:', error);
-    res.status(500).json({ message: 'Error completing route', error: error.message });
-  }
-};
-
+/**
+ * PUT /routes/:routeId/assign
+ * Assign an employee or crew to a route.
+ * Request body: { employee: "employeeId" } or { crew: "crewId" }
+ */
 exports.assignRoute = async (req, res) => {
   try {
-    const { day, index } = req.params;
+    const { routeId } = req.params;
     const { employee, crew } = req.body;
 
-    if (!employee && !crew) {
-      return res.status(400).json({ message: 'Either employee or crew must be provided' });
-    }
-
-    let route = await Route.findOne({ createdBy: req.user._id, day, index: parseInt(index, 10) });
-
+    const route = await Route.findOne({ _id: routeId, createdBy: req.user._id });
     if (!route) {
       return res.status(404).json({ message: 'Route not found' });
     }
@@ -270,12 +260,13 @@ exports.assignRoute = async (req, res) => {
     } else if (crew) {
       route.crew = crew;
       route.employee = null;
+    } else {
+      return res.status(400).json({ message: 'Must provide employee or crew ID' });
     }
 
     await route.save();
 
-    // Populate the route with job details and customer information
-    route = await Route.findById(route._id)
+    const populated = await Route.findById(route._id)
       .populate({
         path: 'jobs',
         populate: { path: 'customer', select: 'name' }
@@ -283,84 +274,37 @@ exports.assignRoute = async (req, res) => {
       .populate('employee', 'name')
       .populate('crew', 'name');
 
-    console.log(`Route assigned: day ${day}, index ${index}, employee: ${employee}, crew: ${crew}`);
-    res.json(route);
+    res.json(populated);
   } catch (error) {
-    console.error('Error in assignRoute:', error);
+    console.error('Error assigning route:', error);
     res.status(500).json({ message: 'Error assigning route', error: error.message });
   }
 };
 
-// Function to update all routes (with transaction)
-exports.updateAllRoutes = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
+/**
+ * DELETE /routes/:routeId
+ * Delete a route by ID.
+ * If you want to return jobs to job pool or perform other cleanup, do it here.
+ */
+exports.deleteRouteById = async (req, res) => {
   try {
-    console.log('Starting updateAllRoutes transaction');
-    const { routes } = req.body;
-    console.log('Received routes data:', JSON.stringify(routes, null, 2));
+    const { routeId } = req.params;
 
-    if (typeof routes !== 'object' || routes === null) {
-      throw new Error('Invalid routes data');
+    const route = await Route.findOneAndDelete({ _id: routeId, createdBy: req.user._id });
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
     }
 
-    // Delete all existing routes for this user
-    await Route.deleteMany({ createdBy: req.user._id }, { session });
+    // If you want to update jobs that were on this route to become unscheduled, do so:
+    // For example:
+    // await Job.updateMany(
+    //   { _id: { $in: route.jobs } },
+    //   { $set: { scheduledDay: null } }
+    // );
 
-    for (const [day, dayRoutes] of Object.entries(routes)) {
-      console.log(`Processing routes for ${day}`);
-      
-      for (let i = 0; i < dayRoutes.length; i++) {
-        const routeData = dayRoutes[i];
-        const jobIds = Array.isArray(routeData?.jobs) ? routeData.jobs : [];
-        
-        console.log(`Creating route for ${day}, index ${i}, jobs:`, jobIds);
-    
-        const newRoute = {
-          createdBy: req.user._id,
-          day,
-          index: i,
-          name: routeData.name || `Route ${i + 1}`, // Add default name if not provided
-          jobs: jobIds,
-          employee: routeData.employee || null,
-          crew: routeData.crew || null
-        };
-
-        console.log(`New route data:`, JSON.stringify(newRoute, null, 2));
-
-        try {
-          await Route.create([newRoute], { session });
-        } catch (routeError) {
-          console.error(`Error creating route:`, routeError);
-          throw routeError;
-        }
-      }
-    }
-
-    // Update all jobs to remove scheduledDay if they're not in any route
-    const allScheduledJobIds = Object.values(routes)
-      .flat()
-      .flatMap(route => Array.isArray(route.jobs) ? route.jobs : []);
-
-    console.log('Updating unscheduled jobs');
-    await Job.updateMany(
-      { 
-        createdBy: req.user._id, 
-        _id: { $nin: allScheduledJobIds }
-      },
-      { $set: { scheduledDay: null } },
-      { session }
-    );
-
-    await session.commitTransaction();
-    console.log('Transaction committed successfully');
-    res.json({ message: 'Routes and job pool updated successfully' });
+    res.json({ message: 'Route deleted successfully' });
   } catch (error) {
-    console.error('Error in updateAllRoutes:', error);
-    await session.abortTransaction();
-    res.status(500).json({ message: 'Failed to update routes and job pool', error: error.message });
-  } finally {
-    session.endSession();
+    console.error('Error deleting route:', error);
+    res.status(500).json({ message: 'Failed to delete route', error: error.message });
   }
 };

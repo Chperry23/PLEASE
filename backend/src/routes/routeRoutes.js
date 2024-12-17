@@ -1,4 +1,3 @@
-// src/routes/routeRoutes.js
 const express = require('express');
 const router = express.Router();
 const routeController = require('../controllers/routeController');
@@ -7,8 +6,8 @@ const auth = require('../middleware/auth');
 // Get all routes
 router.get('/', auth, routeController.getRoutes);
 
-// Get routes by day
-router.get('/:day', auth, routeController.getRouteByDay);
+// Get routes by day (new endpoint to avoid conflicts)
+router.get('/day/:day', auth, routeController.getRouteByDay);
 
 // Update a specific route
 router.put('/:day/:index', auth, routeController.updateRoute);
