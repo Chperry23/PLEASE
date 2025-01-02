@@ -308,3 +308,70 @@ exports.deleteRouteById = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete route', error: error.message });
   }
 };
+
+exports.getRouteByDay = async (req, res) => {
+  try {
+    const { day } = req.params;
+    const routes = await Route.find({ 
+      createdBy: req.user._id,
+      dayOfWeek: day 
+    })
+    .populate({
+      path: 'jobs',
+      populate: { path: 'customer', select: 'name' }
+    })
+    .populate('employee', 'name')
+    .populate('crew', 'name')
+    .lean();
+
+    res.json(routes);
+  } catch (error) {
+    console.error('Error fetching routes by day:', error);
+    res.status(500).json({ message: 'Failed to fetch routes', error: error.message });
+  }
+};
+
+exports.updateRoute = async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const route = await Route.findOneAndUpdate(
+      { _id: routeId, createdBy: req.user._id },
+      req.body,
+      { new: true }
+    )
+    .populate({
+      path: 'jobs',
+      populate: { path: 'customer', select: 'name' }
+    })
+    .populate('employee', 'name')
+    .populate('crew', 'name');
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    res.json(route);
+  } catch (error) {
+    console.error('Error updating route:', error);
+    res.status(500).json({ message: 'Failed to update route', error: error.message });
+  }
+};
+
+exports.deleteRoute = async (req, res) => {
+  try {
+    const { routeId } = req.params;
+    const route = await Route.findOneAndDelete({ 
+      _id: routeId, 
+      createdBy: req.user._id 
+    });
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    res.json({ message: 'Route deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting route:', error);
+    res.status(500).json({ message: 'Failed to delete route', error: error.message });
+  }
+};
