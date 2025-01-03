@@ -29,7 +29,6 @@ import Profile from './pages/Profile';
 import ManageEmployees from './pages/ManageEmployees';
 import Employee from './pages/Employee';
 import QuoteBuilder from './components/QuoteBuilder'; // Updated import
-import BuildRoutes from './pages/BuildRoutes';
 import RouteAssignments from './pages/RouteAssignments';
 import RouteMap from './pages/RouteMap';
 import SendNotifications from './pages/SendNotifications';
@@ -87,11 +86,6 @@ function App() {
             <Route path="/route-assignments" element={
               <ProtectedRoute>
                 <RouteAssignments />
-              </ProtectedRoute>
-            } />
-            <Route path="/build-routes" element={
-              <ProtectedRoute>
-                <BuildRoutes />
               </ProtectedRoute>
             } />
             <Route path="/route-map" element={

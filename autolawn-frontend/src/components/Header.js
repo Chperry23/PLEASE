@@ -95,7 +95,6 @@ const Header = () => {
               </button>
               {activeDropdown === 'routes' && (
                 <div className="absolute mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                  <Link to="/build-routes" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Route Builder</Link>
                   <Link to="/route-map" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Route Map</Link>
                   <Link to="/calendar" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Calendar</Link> {/* Added Calendar Link */}
                 </div>
