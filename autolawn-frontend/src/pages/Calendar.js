@@ -1,10 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay, addMinutes } from 'date-fns';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
+import '../styles/calendar.css';
 import Header from '../components/Header';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { WiDaySunny, WiRain, WiCloudy } from 'react-icons/wi';
+
+const DnDCalendar = withDragAndDrop(BigCalendar);
+
+const JobPoolItem = ({ job }) => {
+  const [{ isDragging }, drag] = useDrag({
+    type: 'JOB',
+    item: { type: 'JOB', job },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  return (
+    <div
+      ref={drag}
+      className={`bg-white p-4 mb-2 rounded-lg shadow hover:shadow-lg transition-shadow cursor-move
+        ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+    >
+      <h4 className="font-semibold text-gray-800">{job.title}</h4>
+      <p className="text-sm text-gray-600">{job.customer?.name}</p>
+      <div className="flex justify-between mt-2 text-sm">
+        <span className="text-green-600">${job.price}</span>
+        <span className="text-gray-600">{job.duration || 60}min</span>
+      </div>
+    </div>
+  );
+};
 
 const locales = {
   'en-US': require('date-fns/locale/en-US')
@@ -40,48 +70,38 @@ const Calendar = () => {
     fetchActiveJobs();
   }, []);
 
-  const JobPoolItem = ({ job, index }) => (
-    <Draggable draggableId={job._id} index={index}>
-      {(provided) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className="bg-white p-4 mb-2 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-        >
-          <h4 className="font-semibold text-gray-800">{job.title}</h4>
-          <p className="text-sm text-gray-600">{job.customer?.name}</p>
-          <div className="flex justify-between mt-2 text-sm">
-            <span className="text-green-600">${job.price}</span>
-            <span className="text-gray-600">{job.duration || 60}min</span>
-          </div>
-        </div>
-      )}
-    </Draggable>
-  );
-
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
-
-    const { source, destination, draggableId } = result;
-    
-    if (source.droppableId === 'jobPool') {
-      const job = jobPool.find(j => j._id === draggableId);
-      const date = new Date(destination.droppableId);
+  const [, drop] = useDrop({
+    accept: 'JOB',
+    drop: (item, monitor) => {
+      const dropPoint = monitor.getClientOffset();
+      const calendarElement = document.querySelector('.rbc-calendar');
+      const calendarRect = calendarElement.getBoundingClientRect();
       
-      // Create new event
+      // Calculate relative position in calendar
+      const relativeX = dropPoint.x - calendarRect.left;
+      const relativeY = dropPoint.y - calendarRect.top;
+      
+      // Convert position to date/time
+      // This is a simplified version - you'll need to adjust based on your calendar's view
+      const date = new Date(); // Calculate proper date based on drop position
+      
       const newEvent = {
         id: `event-${Date.now()}`,
-        title: job.title,
+        title: item.job.title,
         start: date,
-        end: new Date(date.getTime() + (job.duration || 60) * 60000),
-        job: job,
-        resource: 'route-1'
+        end: addMinutes(date, item.job.duration || 60),
+        job: item.job
       };
 
-      setEvents([...events, newEvent]);
-      setJobPool(jobPool.filter(j => j._id !== draggableId));
+      setEvents(prev => [...prev, newEvent]);
+      setJobPool(prev => prev.filter(j => j._id !== item.job._id));
     }
+  });
+
+  const moveEvent = ({ event, start, end }) => {
+    setEvents(prev => prev.map(ev => 
+      ev.id === event.id ? { ...ev, start, end } : ev
+    ));
   };
 
   const EventComponent = ({ event }) => (
@@ -133,58 +153,47 @@ const Calendar = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-4 gap-8">
-          {/* Job Pool */}
-          <div className="col-span-1 bg-white p-4 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Job Pool</h2>
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="jobPool">
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="space-y-2"
-                  >
-                    {jobPool.map((job, index) => (
-                      <JobPoolItem key={job._id} job={job} index={index} />
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
+    <DndProvider backend={HTML5Backend}>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-4 gap-8">
+            {/* Job Pool */}
+            <div className="col-span-1 bg-white p-4 rounded-lg shadow">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">Job Pool</h2>
+              <div className="space-y-2">
+                {jobPool.map((job) => (
+                  <JobPoolItem key={job._id} job={job} />
+                ))}
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div ref={drop} className="col-span-3 bg-white p-4 rounded-lg shadow">
+              <DnDCalendar
+                localizer={localizer}
+                events={events}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: 700 }}
+                onEventDrop={moveEvent}
+                onEventResize={moveEvent}
+                resizable
+                selectable
+                popup
+              />
+            </div>
           </div>
 
-          {/* Calendar */}
-          <div className="col-span-3 bg-white p-4 rounded-lg shadow">
-            <BigCalendar
-              localizer={localizer}
-              events={events}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: 700 }}
-              components={{
-                event: EventComponent
-              }}
-              onSelectEvent={handleSelectEvent}
-              draggableAccessor={() => true}
-              selectable
-              resizable
+          {selectedEvent && (
+            <EventDetailsModal
+              event={selectedEvent}
+              onClose={() => setSelectedEvent(null)}
             />
-          </div>
+          )}
         </div>
-
-        {selectedEvent && (
-          <EventDetailsModal
-            event={selectedEvent}
-            onClose={() => setSelectedEvent(null)}
-          />
-        )}
       </div>
-    </div>
+    </DndProvider>
   );
 };
 
