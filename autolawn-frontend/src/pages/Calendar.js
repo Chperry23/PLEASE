@@ -8,6 +8,7 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import '../styles/calendar.css';
 import Header from '../components/Header';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { CheckCircleIcon } from '@heroicons/react/24/outline';
 
 const DnDCalendar = withDragAndDrop(BigCalendar);
 
@@ -59,6 +60,8 @@ const Calendar = () => {
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [showRouteDetails, setShowRouteDetails] = useState(false);
   const [routeSelectionCallback, setRouteSelectionCallback] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Fetch active jobs for the job pool
   useEffect(() => {
@@ -223,6 +226,10 @@ const Calendar = () => {
       });
 
       setJobPool(prev => prev.filter(j => j._id !== item.job._id));
+
+      setSuccessMessage(`Job "${item.job.title}" successfully added to route`);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
     }
   });
 
@@ -601,8 +608,12 @@ const Calendar = () => {
     style: {
       backgroundColor: event.routeId ? '#3182ce' : '#48bb78',
       borderColor: event.routeId ? '#2c5282' : '#2f855a',
-      minHeight: '60px',
-      padding: '4px'
+      minHeight: '80px',
+      padding: '8px',
+      color: 'white',
+      borderRadius: '6px',
+      border: '2px solid',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     }
   }), []);
 
@@ -678,6 +689,16 @@ const Calendar = () => {
               setSelectedRoute(null);
             }}
           />
+        )}
+
+        {/* Success Toast */}
+        {showSuccess && (
+          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-up">
+            <div className="flex items-center">
+              <CheckCircleIcon className="h-5 w-5 mr-2" />
+              {successMessage}
+            </div>
+          </div>
         )}
       </div>
     </div>

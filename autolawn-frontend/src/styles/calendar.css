@@ -76,9 +76,24 @@
 }
 
 .calendar-event {
-  border-radius: 6px;
-  margin: 2px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin: 2px !important;
+  transition: all 0.2s ease;
+}
+
+.calendar-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+}
+
+.rbc-event {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.rbc-event-content {
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  height: 100% !important;
 }
 
 .rbc-day-slot .rbc-event {
@@ -149,7 +164,8 @@
 
 /* Month View Specific */
 .rbc-month-view .calendar-event {
-  min-height: 24px;
+  min-height: 40px !important;
+  margin: 1px !important;
 }
 
 .rbc-month-view .event-content {
@@ -170,4 +186,20 @@
 
 .recurring-event {
   border-right: 4px solid #48bb78;
+}
+
+/* Success Animation */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
 }
