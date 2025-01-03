@@ -37,6 +37,9 @@ import MaterialCalculator from './pages/MaterialCalculator'; // Adjust path as n
 // **Import the Calendar Page**
 import CalendarPage from './pages/Calendar'; // Adjust the path if necessary
 
+// Add this import
+import AboutUs from './pages/AboutUs';
+
 function App() {
   return (
     <AuthProvider>
@@ -153,6 +156,9 @@ function App() {
                 <SendNotifications />
               </ProtectedRoute>
             } />
+
+            {/* Add this route inside your Routes component */}
+            <Route path="/about" element={<AboutUs />} />
           </Routes>
         </div>
       </Router>
