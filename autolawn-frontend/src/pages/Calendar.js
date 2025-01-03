@@ -291,11 +291,22 @@ const Calendar = () => {
 
   const EventComponent = ({ event }) => (
     <div 
-      className="bg-blue-500 text-white p-2 rounded cursor-pointer"
+      className="h-full w-full bg-blue-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden border-2 border-blue-600"
       onClick={() => handleRouteClick(event.routeId, event.start)}
     >
-      <div className="font-semibold">{event.title}</div>
-      <div className="text-sm">{event.job?.customer?.name}</div>
+      <div className="p-2">
+        <div className="font-bold text-lg truncate">{event.title}</div>
+        <div className="text-sm opacity-90">
+          {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+        </div>
+        <div className="text-sm font-medium truncate">
+          {event.job?.customer?.name}
+        </div>
+        <div className="text-xs mt-1 flex justify-between items-center">
+          <span>${event.job?.price || 0}</span>
+          <span>{event.job?.estimatedDuration || 60}min</span>
+        </div>
+      </div>
     </div>
   );
 
@@ -569,6 +580,12 @@ const Calendar = () => {
     );
   };
 
+  // Add custom styling for the calendar
+  const calendarStyle = {
+    height: 800, // Make calendar taller
+    className: "custom-calendar"
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -577,7 +594,7 @@ const Calendar = () => {
           {/* Job Pool */}
           <div className="col-span-1 bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Job Pool</h2>
-            <div className="space-y-2">
+            <div className="space-y-3"> {/* Increased spacing between jobs */}
               {jobPool.map((job) => (
                 <JobPoolItem key={job._id} job={job} />
               ))}
@@ -591,12 +608,29 @@ const Calendar = () => {
               events={events}
               startAccessor="start"
               endAccessor="end"
-              style={{ height: 700 }}
+              style={calendarStyle}
               onEventDrop={moveEvent}
               onEventResize={moveEvent}
               resizable
               selectable
               popup
+              components={{
+                event: EventComponent
+              }}
+              eventPropGetter={(event) => ({
+                className: 'calendar-event',
+                style: {
+                  minHeight: '80px', // Minimum height for events
+                  fontSize: '1rem'    // Larger font size
+                }
+              })}
+              dayPropGetter={(date) => ({
+                className: 'calendar-day',
+                style: {
+                  backgroundColor: 'white',
+                  padding: '8px'
+                }
+              })}
             />
           </div>
         </div>
