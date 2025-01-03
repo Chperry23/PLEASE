@@ -37,8 +37,6 @@ import MaterialCalculator from './pages/MaterialCalculator'; // Adjust path as n
 // **Import the Calendar Page**
 import CalendarPage from './pages/Calendar'; // Adjust the path if necessary
 
-// Add this import
-import About from './pages/About';
 
 function App() {
   return (
