@@ -7,6 +7,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import '../styles/calendar.css';
 import Header from '../components/Header';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const DnDCalendar = withDragAndDrop(BigCalendar);
 
@@ -56,6 +57,7 @@ const Calendar = () => {
   const [routes, setRoutes] = useState({});
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [showRouteDetails, setShowRouteDetails] = useState(false);
 
   // Fetch active jobs for the job pool
   useEffect(() => {
@@ -230,7 +232,10 @@ const Calendar = () => {
   };
 
   const EventComponent = ({ event }) => (
-    <div className="bg-blue-500 text-white p-2 rounded">
+    <div 
+      className="bg-blue-500 text-white p-2 rounded cursor-pointer"
+      onClick={() => handleRouteClick(event.routeId, event.start)}
+    >
       <div className="font-semibold">{event.title}</div>
       <div className="text-sm">{event.job?.customer?.name}</div>
     </div>
@@ -331,6 +336,181 @@ const Calendar = () => {
     );
   };
 
+  // Function to handle route click
+  const handleRouteClick = (routeId, date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const route = routes[dateKey]?.find(r => r.id === routeId);
+    if (route) {
+      setSelectedRoute(route);
+      setShowRouteDetails(true);
+    }
+  };
+
+  // Function to handle job reordering within a route
+  const handleJobReorder = (result) => {
+    if (!result.destination || !selectedRoute) return;
+
+    const dateKey = format(selectedRoute.date, 'yyyy-MM-dd');
+    const items = Array.from(selectedRoute.events);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update route with new order
+    setRoutes(prev => ({
+      ...prev,
+      [dateKey]: prev[dateKey].map(route => 
+        route.id === selectedRoute.id 
+          ? { ...route, events: items }
+          : route
+      )
+    }));
+  };
+
+  // Function to remove job from route
+  const removeJobFromRoute = (eventId) => {
+    if (!selectedRoute) return;
+
+    const dateKey = format(selectedRoute.date, 'yyyy-MM-dd');
+    const event = selectedRoute.events.find(e => e.id === eventId);
+
+    // Remove event from route
+    setRoutes(prev => ({
+      ...prev,
+      [dateKey]: prev[dateKey].map(route => {
+        if (route.id === selectedRoute.id) {
+          const updatedEvents = route.events.filter(e => e.id !== eventId);
+          return {
+            ...route,
+            events: updatedEvents,
+            details: calculateRouteDetails(updatedEvents)
+          };
+        }
+        return route;
+      })
+    }));
+
+    // Add job back to pool
+    if (event?.job) {
+      setJobPool(prev => [...prev, event.job]);
+    }
+  };
+
+  // Function to delete entire route
+  const deleteRoute = () => {
+    if (!selectedRoute) return;
+
+    const dateKey = format(selectedRoute.date, 'yyyy-MM-dd');
+    
+    // Return all jobs to pool
+    selectedRoute.events.forEach(event => {
+      if (event.job) {
+        setJobPool(prev => [...prev, event.job]);
+      }
+    });
+
+    // Remove route
+    setRoutes(prev => ({
+      ...prev,
+      [dateKey]: prev[dateKey].filter(route => route.id !== selectedRoute.id)
+    }));
+
+    setShowRouteDetails(false);
+    setSelectedRoute(null);
+  };
+
+  // Route Details Modal Component
+  const RouteDetailsModal = ({ route, onClose }) => {
+    if (!route) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">
+              Route Details - {format(route.date, 'MMM dd, yyyy')}
+            </h2>
+            <div className="space-x-2">
+              <button
+                onClick={deleteRoute}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Delete Route
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-blue-50 p-4 rounded">
+              <div className="text-lg font-semibold">Total Revenue</div>
+              <div className="text-2xl text-green-600">${route.details.totalRevenue}</div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded">
+              <div className="text-lg font-semibold">Duration</div>
+              <div className="text-2xl">{route.details.totalDuration} min</div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded">
+              <div className="text-lg font-semibold">Jobs</div>
+              <div className="text-2xl">{route.details.jobCount}</div>
+            </div>
+          </div>
+
+          <DragDropContext onDragEnd={handleJobReorder}>
+            <Droppable droppableId="route-jobs">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="space-y-2"
+                >
+                  {route.events.map((event, index) => (
+                    <Draggable
+                      key={event.id}
+                      draggableId={event.id}
+                      index={index}
+                    >
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className="bg-white border rounded-lg p-4 shadow-sm hover:shadow"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h3 className="font-semibold">{event.title}</h3>
+                              <p className="text-sm text-gray-600">
+                                {event.job?.customer?.name} | 
+                                Duration: {event.job?.estimatedDuration || 60}min | 
+                                ${event.job?.price || 0}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => removeJobFromRoute(event.id)}
+                              className="text-red-500 hover:text-red-600"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -380,6 +560,16 @@ const Calendar = () => {
             onClose={() => {
               setShowRouteModal(false);
               routeSelectionCallback(null);
+            }}
+          />
+        )}
+
+        {showRouteDetails && selectedRoute && (
+          <RouteDetailsModal
+            route={selectedRoute}
+            onClose={() => {
+              setShowRouteDetails(false);
+              setSelectedRoute(null);
             }}
           />
         )}
