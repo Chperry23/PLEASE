@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, addMinutes } from 'date-fns';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useDrag, useDrop } from 'react-dnd';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import '../styles/calendar.css';
@@ -153,47 +152,45 @@ const Calendar = () => {
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-4 gap-8">
-            {/* Job Pool */}
-            <div className="col-span-1 bg-white p-4 rounded-lg shadow">
-              <h2 className="text-xl font-bold mb-4 text-gray-800">Job Pool</h2>
-              <div className="space-y-2">
-                {jobPool.map((job) => (
-                  <JobPoolItem key={job._id} job={job} />
-                ))}
-              </div>
-            </div>
-
-            {/* Calendar */}
-            <div ref={drop} className="col-span-3 bg-white p-4 rounded-lg shadow">
-              <DnDCalendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ height: 700 }}
-                onEventDrop={moveEvent}
-                onEventResize={moveEvent}
-                resizable
-                selectable
-                popup
-              />
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-4 gap-8">
+          {/* Job Pool */}
+          <div className="col-span-1 bg-white p-4 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Job Pool</h2>
+            <div className="space-y-2">
+              {jobPool.map((job) => (
+                <JobPoolItem key={job._id} job={job} />
+              ))}
             </div>
           </div>
 
-          {selectedEvent && (
-            <EventDetailsModal
-              event={selectedEvent}
-              onClose={() => setSelectedEvent(null)}
+          {/* Calendar */}
+          <div ref={drop} className="col-span-3 bg-white p-4 rounded-lg shadow">
+            <DnDCalendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: 700 }}
+              onEventDrop={moveEvent}
+              onEventResize={moveEvent}
+              resizable
+              selectable
+              popup
             />
-          )}
+          </div>
         </div>
+
+        {selectedEvent && (
+          <EventDetailsModal
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+          />
+        )}
       </div>
-    </DndProvider>
+    </div>
   );
 };
 

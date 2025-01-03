@@ -3,6 +3,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 // Public Pages
 import Home from './pages/Home';
@@ -40,127 +42,129 @@ import CalendarPage from './pages/Calendar'; // Adjust the path if necessary
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            {/* Public Routes - No auth required */}
-            <Route path="/" element={<Home />} />
-            <Route path="/features" element={<Features />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/public-profile" element={<PublicProfile />} />
+    <DndProvider backend={HTML5Backend}>
+      <AuthProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              {/* Public Routes - No auth required */}
+              <Route path="/" element={<Home />} />
+              <Route path="/features" element={<Features />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/public-profile" element={<PublicProfile />} />
 
-            {/* Auth Routes */}
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/oauth-success" element={<OAuthSuccess />} />
-            <Route path="/login-success" element={<LoginSuccess />} />
-            
-            {/* Routes that require auth but not subscription */}
-            <Route path="/pricing" element={
-              <ProtectedRoute requireSubscription={false}>
-                <Pricing />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/payment-success" element={
-              <ProtectedRoute requireSubscription={false}>
-                <PaymentSuccess />
-              </ProtectedRoute>
-            } />
+              {/* Auth Routes */}
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/oauth-success" element={<OAuthSuccess />} />
+              <Route path="/login-success" element={<LoginSuccess />} />
+              
+              {/* Routes that require auth but not subscription */}
+              <Route path="/pricing" element={
+                <ProtectedRoute requireSubscription={false}>
+                  <Pricing />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/payment-success" element={
+                <ProtectedRoute requireSubscription={false}>
+                  <PaymentSuccess />
+                </ProtectedRoute>
+              } />
 
-            {/* Protected Routes - Require auth and subscription */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
+              {/* Protected Routes - Require auth and subscription */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/material-calculator" element={
-	      <ProtectedRoute>
-   	        <MaterialCalculator />
- 	      </ProtectedRoute>
-	    } />
+              <Route path="/material-calculator" element={
+                <ProtectedRoute>
+                  <MaterialCalculator />
+                </ProtectedRoute>
+              } />
 
-            {/* Route Management */}
-            <Route path="/route-assignments" element={
-              <ProtectedRoute>
-                <RouteAssignments />
-              </ProtectedRoute>
-            } />
-            <Route path="/route-map" element={
-              <ProtectedRoute>
-                <RouteMap />
-              </ProtectedRoute>
-            } />
+              {/* Route Management */}
+              <Route path="/route-assignments" element={
+                <ProtectedRoute>
+                  <RouteAssignments />
+                </ProtectedRoute>
+              } />
+              <Route path="/route-map" element={
+                <ProtectedRoute>
+                  <RouteMap />
+                </ProtectedRoute>
+              } />
 
-            {/* **Add the Calendar Route** */}
-            <Route path="/calendar" element={
-              <ProtectedRoute>
-                <CalendarPage />
-              </ProtectedRoute>
-            } />
+              {/* **Add the Calendar Route** */}
+              <Route path="/calendar" element={
+                <ProtectedRoute>
+                  <CalendarPage />
+                </ProtectedRoute>
+              } />
 
-            {/* Job Management */}
-            <Route path="/jobs" element={
-              <ProtectedRoute>
-                <Jobs />
-              </ProtectedRoute>
-            } />
-            <Route path="/manage-jobs" element={
-              <ProtectedRoute>
-                <ManageJobs />
-              </ProtectedRoute>
-            } />
-            <Route path="/quote-builder" element={
-              <ProtectedRoute>
-                <QuoteBuilder />
-              </ProtectedRoute>
-            } />
+              {/* Job Management */}
+              <Route path="/jobs" element={
+                <ProtectedRoute>
+                  <Jobs />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-jobs" element={
+                <ProtectedRoute>
+                  <ManageJobs />
+                </ProtectedRoute>
+              } />
+              <Route path="/quote-builder" element={
+                <ProtectedRoute>
+                  <QuoteBuilder />
+                </ProtectedRoute>
+              } />
 
-            {/* Customer Management */}
-            <Route path="/customers" element={
-              <ProtectedRoute>
-                <Customers />
-              </ProtectedRoute>
-            } />
-            <Route path="/manage-customers" element={
-              <ProtectedRoute>
-                <ManageCustomers />
-              </ProtectedRoute>
-            } />
+              {/* Customer Management */}
+              <Route path="/customers" element={
+                <ProtectedRoute>
+                  <Customers />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-customers" element={
+                <ProtectedRoute>
+                  <ManageCustomers />
+                </ProtectedRoute>
+              } />
 
-            {/* Employee Management */}
-            <Route path="/manage-employees" element={
-              <ProtectedRoute>
-                <ManageEmployees />
-              </ProtectedRoute>
-            } />
-            <Route path="/add-employee" element={
-              <ProtectedRoute>
-                <Employee />
-              </ProtectedRoute>
-            } />
+              {/* Employee Management */}
+              <Route path="/manage-employees" element={
+                <ProtectedRoute>
+                  <ManageEmployees />
+                </ProtectedRoute>
+              } />
+              <Route path="/add-employee" element={
+                <ProtectedRoute>
+                  <Employee />
+                </ProtectedRoute>
+              } />
 
-            {/* User & Notifications */}
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
-            <Route path="/send-notifications" element={
-              <ProtectedRoute>
-                <SendNotifications />
-              </ProtectedRoute>
-            } />
+              {/* User & Notifications */}
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/send-notifications" element={
+                <ProtectedRoute>
+                  <SendNotifications />
+                </ProtectedRoute>
+              } />
 
-            {/* Add this route inside your Routes component */}
-            <Route path="/about" element={<About />} />
-          </Routes>
-        </div>
-      </Router>
-    </AuthProvider>
+              {/* Add this route inside your Routes component */}
+              <Route path="/about" element={<About />} />
+            </Routes>
+          </div>
+        </Router>
+      </AuthProvider>
+    </DndProvider>
   );
 }
 
