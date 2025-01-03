@@ -76,8 +76,8 @@
 }
 
 .calendar-event {
-  margin: 2px;
   border-radius: 6px;
+  margin: 2px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
@@ -92,4 +92,82 @@
 
 .rbc-agenda-view table.rbc-agenda-table {
   font-size: 1rem;
+}
+
+/* Event Styles */
+.event-wrapper {
+  height: 100%;
+  width: 100%;
+  color: white;
+}
+
+.event-wrapper.month-view {
+  padding: 4px;
+  min-height: 24px;
+}
+
+.event-wrapper.week-view {
+  padding: 8px;
+  min-height: 60px;
+}
+
+.event-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.event-time {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.recurring-indicator {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.event-title {
+  font-weight: bold;
+  font-size: 1rem;
+  margin-bottom: 2px;
+}
+
+.event-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+/* Month View Specific */
+.rbc-month-view .calendar-event {
+  min-height: 24px;
+}
+
+.rbc-month-view .event-content {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Week View Specific */
+.rbc-time-view .calendar-event {
+  min-height: 60px;
+}
+
+/* Route Indicators */
+.route-event {
+  border-left: 4px solid #2c5282;
+}
+
+.recurring-event {
+  border-right: 4px solid #48bb78;
 }

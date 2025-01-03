@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, addMinutes, addMonths, addWeeks, isBefore } from 'date-fns';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -289,26 +289,35 @@ const Calendar = () => {
     }
   };
 
-  const EventComponent = ({ event }) => (
-    <div 
-      className="h-full w-full bg-blue-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden border-2 border-blue-600"
-      onClick={() => handleRouteClick(event.routeId, event.start)}
-    >
-      <div className="p-2">
-        <div className="font-bold text-lg truncate">{event.title}</div>
-        <div className="text-sm opacity-90">
-          {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
-        </div>
-        <div className="text-sm font-medium truncate">
-          {event.job?.customer?.name}
-        </div>
-        <div className="text-xs mt-1 flex justify-between items-center">
-          <span>${event.job?.price || 0}</span>
-          <span>{event.job?.estimatedDuration || 60}min</span>
+  const EventComponent = ({ event }) => {
+    const isMonthView = useCallback(() => {
+      const calendarElement = document.querySelector('.rbc-month-view');
+      return !!calendarElement;
+    }, []);
+
+    return (
+      <div 
+        className={`event-wrapper ${isMonthView() ? 'month-view' : 'week-view'}`}
+        onClick={() => handleRouteClick(event.routeId, event.start)}
+      >
+        <div className="event-content">
+          <div className="event-header">
+            <span className="event-time">
+              {format(event.start, 'h:mm a')}
+            </span>
+            {event.seriesId && (
+              <span className="recurring-indicator">↻</span>
+            )}
+          </div>
+          <div className="event-title">{event.title}</div>
+          <div className="event-details">
+            <span className="customer-name">{event.job?.customer?.name}</span>
+            <span className="event-duration">{event.job?.estimatedDuration}min</span>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const handleSelectEvent = (event) => {
     setSelectedEvent(event);
@@ -582,9 +591,20 @@ const Calendar = () => {
 
   // Add custom styling for the calendar
   const calendarStyle = {
-    height: 800, // Make calendar taller
+    height: 800,
     className: "custom-calendar"
   };
+
+  // Update the event prop getter
+  const eventPropGetter = useCallback((event) => ({
+    className: `calendar-event ${event.seriesId ? 'recurring-event' : ''} ${event.routeId ? 'route-event' : ''}`,
+    style: {
+      backgroundColor: event.routeId ? '#3182ce' : '#48bb78',
+      borderColor: event.routeId ? '#2c5282' : '#2f855a',
+      minHeight: '60px',
+      padding: '4px'
+    }
+  }), []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -617,13 +637,7 @@ const Calendar = () => {
               components={{
                 event: EventComponent
               }}
-              eventPropGetter={(event) => ({
-                className: 'calendar-event',
-                style: {
-                  minHeight: '80px', // Minimum height for events
-                  fontSize: '1rem'    // Larger font size
-                }
-              })}
+              eventPropGetter={eventPropGetter}
               dayPropGetter={(date) => ({
                 className: 'calendar-day',
                 style: {
