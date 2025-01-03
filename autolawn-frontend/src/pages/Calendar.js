@@ -1,22 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { format, addDays } from 'date-fns';
+import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 import Header from '../components/Header';
-import { generateRecurringSeries, RECURRENCE_TYPES, updateSeriesOccurrence } from '../utils/recurringEvents';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { WiDaySunny, WiRain, WiCloudy } from 'react-icons/wi';
+
+const locales = {
+  'en-US': require('date-fns/locale/en-US')
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 const Calendar = () => {
   const [jobs, setJobs] = useState([]);
-  const [routes, setRoutes] = useState([]);
+  const [events, setEvents] = useState([]);
   const [jobPool, setJobPool] = useState([]);
-  const [selectedRoute, setSelectedRoute] = useState(null);
-  const [weatherData, setWeatherData] = useState({});
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [showWeather, setShowWeather] = useState(true);
-  const [recurrenceModal, setRecurrenceModal] = useState(null);
 
   // Fetch active jobs for the job pool
   useEffect(() => {
@@ -33,68 +40,6 @@ const Calendar = () => {
     fetchActiveJobs();
   }, []);
 
-  // Fetch weather data
-  useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        // Replace with your weather API
-        const response = await fetch('/api/weather/forecast');
-        const data = await response.json();
-        setWeatherData(data);
-      } catch (error) {
-        console.error('Error fetching weather:', error);
-      }
-    };
-
-    if (showWeather) {
-      fetchWeather();
-    }
-  }, [showWeather]);
-
-  // Enhanced handleDragEnd to handle recurring events
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
-
-    const { source, destination, draggableId } = result;
-    
-    if (source.droppableId === 'jobPool') {
-      const job = jobPool.find(j => j._id === draggableId);
-      
-      // Show recurrence modal
-      setRecurrenceModal({
-        job,
-        date: destination.droppableId
-      });
-    }
-  };
-
-  // Handle recurrence selection
-  const handleRecurrenceSelect = (job, date, recurrenceType) => {
-    const series = generateRecurringSeries(job, date, recurrenceType);
-    
-    // Create routes for each occurrence
-    const newRoutes = series.map(occurrence => ({
-      id: `route-${occurrence.occurrence}-${Date.now()}`,
-      title: `Route: ${occurrence.title}`,
-      start: occurrence.start,
-      jobs: [occurrence],
-      estimatedDuration: occurrence.duration || 60,
-      totalRevenue: occurrence.price || 0,
-      seriesId: occurrence.seriesId
-    }));
-
-    setRoutes([...routes, ...newRoutes]);
-    setJobPool(jobPool.filter(j => j._id !== job._id));
-    setRecurrenceModal(null);
-  };
-
-  // Handle clicking on a route
-  const handleRouteClick = (info) => {
-    const route = routes.find(r => r.id === info.event.id);
-    setSelectedRoute(route);
-  };
-
-  // Render job pool items
   const JobPoolItem = ({ job, index }) => (
     <Draggable draggableId={job._id} index={index}>
       {(provided) => (
@@ -102,153 +47,85 @@ const Calendar = () => {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className="bg-surface p-4 mb-2 rounded-lg shadow hover:shadow-lg transition-shadow"
+          className="bg-white p-4 mb-2 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
         >
-          <h4 className="font-semibold">{job.title}</h4>
-          <p className="text-sm text-gray-300">{job.customer?.name}</p>
+          <h4 className="font-semibold text-gray-800">{job.title}</h4>
+          <p className="text-sm text-gray-600">{job.customer?.name}</p>
           <div className="flex justify-between mt-2 text-sm">
-            <span>${job.price}</span>
-            <span>{job.duration || 60}min</span>
+            <span className="text-green-600">${job.price}</span>
+            <span className="text-gray-600">{job.duration || 60}min</span>
           </div>
         </div>
       )}
     </Draggable>
   );
 
-  // Weather display component
-  const WeatherDisplay = ({ date }) => {
-    const weather = weatherData[format(date, 'yyyy-MM-dd')];
-    if (!weather) return null;
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
 
-    return (
-      <div className="flex items-center space-x-2 text-sm">
-        {weather.condition === 'sunny' && <WiDaySunny className="text-yellow-400" />}
-        {weather.condition === 'rain' && <WiRain className="text-blue-400" />}
-        {weather.condition === 'cloudy' && <WiCloudy className="text-gray-400" />}
-        <span>{weather.temperature}°F</span>
-      </div>
-    );
+    const { source, destination, draggableId } = result;
+    
+    if (source.droppableId === 'jobPool') {
+      const job = jobPool.find(j => j._id === draggableId);
+      const date = new Date(destination.droppableId);
+      
+      // Create new event
+      const newEvent = {
+        id: `event-${Date.now()}`,
+        title: job.title,
+        start: date,
+        end: new Date(date.getTime() + (job.duration || 60) * 60000),
+        job: job,
+        resource: 'route-1'
+      };
+
+      setEvents([...events, newEvent]);
+      setJobPool(jobPool.filter(j => j._id !== draggableId));
+    }
   };
 
-  // Recurrence Modal Component
-  const RecurrenceModal = ({ data, onClose }) => {
-    if (!data) return null;
+  const EventComponent = ({ event }) => (
+    <div className="bg-blue-500 text-white p-2 rounded">
+      <div className="font-semibold">{event.title}</div>
+      <div className="text-sm">{event.job?.customer?.name}</div>
+    </div>
+  );
 
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-        <div className="bg-surface rounded-lg p-6 max-w-md w-full">
-          <h2 className="text-xl font-bold mb-4">Set Job Recurrence</h2>
-          <div className="space-y-4">
-            <button
-              onClick={() => handleRecurrenceSelect(data.job, data.date, RECURRENCE_TYPES.WEEKLY)}
-              className="w-full p-3 bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              Weekly
-            </button>
-            <button
-              onClick={() => handleRecurrenceSelect(data.job, data.date, RECURRENCE_TYPES.BIWEEKLY)}
-              className="w-full p-3 bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              Bi-weekly
-            </button>
-            <button
-              onClick={() => handleRecurrenceSelect(data.job, data.date, RECURRENCE_TYPES.MONTHLY)}
-              className="w-full p-3 bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => handleRecurrenceSelect(data.job, data.date, RECURRENCE_TYPES.ONETIME)}
-              className="w-full p-3 bg-gray-600 rounded-lg hover:bg-gray-700"
-            >
-              One-time Only
-            </button>
-          </div>
-          <button
-            onClick={onClose}
-            className="mt-4 w-full p-3 bg-gray-700 rounded-lg hover:bg-gray-800"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
+  const handleSelectEvent = (event) => {
+    setSelectedEvent(event);
   };
 
-  // Enhanced Route Details Modal with series options
-  const RouteDetailsModal = ({ route, onClose }) => {
-    if (!route) return null;
-
-    const handlePushEvent = (affectFuture) => {
-      const updatedRoutes = routes.map(r => {
-        if (affectFuture && r.seriesId === route.seriesId) {
-          return { ...r, start: addDays(new Date(r.start), 1).toISOString() };
-        } else if (!affectFuture && r.id === route.id) {
-          return { ...r, start: addDays(new Date(r.start), 1).toISOString() };
-        }
-        return r;
-      });
-      setRoutes(updatedRoutes);
-    };
+  const EventDetailsModal = ({ event, onClose }) => {
+    if (!event) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-        <div className="bg-surface rounded-lg p-6 max-w-2xl w-full">
-          <h2 className="text-xl font-bold mb-4">Route Details</h2>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">{event.title}</h2>
           <div className="space-y-4">
-            {route.jobs.map((job, index) => (
-              <div key={job._id} className="flex justify-between items-center">
-                <div>
-                  <h4 className="font-semibold">{job.title}</h4>
-                  <p className="text-sm text-gray-300">{job.customer?.name}</p>
-                </div>
-                <div className="text-right">
-                  <p>${job.price}</p>
-                  <p className="text-sm text-gray-300">{job.duration}min</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-between">
             <div>
-              <p>Total Revenue: ${route.totalRevenue}</p>
-              <p>Duration: {route.estimatedDuration}min</p>
+              <p className="text-gray-600">Customer: {event.job?.customer?.name}</p>
+              <p className="text-gray-600">Duration: {event.job?.duration || 60} minutes</p>
+              <p className="text-green-600">Price: ${event.job?.price}</p>
             </div>
-            <button
-              onClick={onClose}
-              className="bg-primary px-4 py-2 rounded-lg hover:bg-opacity-90"
-            >
-              Close
-            </button>
-          </div>
-          
-          {route.seriesId && (
-            <div className="mt-4 border-t border-gray-700 pt-4">
-              <h3 className="font-semibold mb-2">Series Options</h3>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => handlePushEvent(false)}
-                  className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Push This Event
-                </button>
-                <button
-                  onClick={() => handlePushEvent(true)}
-                  className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Push All Future Events
-                </button>
-              </div>
+            <div className="flex justify-between">
+              <button
+                onClick={() => {
+                  setJobPool([...jobPool, event.job]);
+                  setEvents(events.filter(e => e.id !== event.id));
+                  onClose();
+                }}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                Remove
+              </button>
+              <button
+                onClick={onClose}
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              >
+                Close
+              </button>
             </div>
-          )}
-          
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={onClose}
-              className="bg-gray-700 px-4 py-2 rounded-lg hover:bg-gray-800"
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
@@ -256,22 +133,13 @@ const Calendar = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={() => setShowWeather(!showWeather)}
-            className="bg-surface px-4 py-2 rounded-lg hover:bg-opacity-90"
-          >
-            {showWeather ? 'Hide Weather' : 'Show Weather'}
-          </button>
-        </div>
-        
         <div className="grid grid-cols-4 gap-8">
           {/* Job Pool */}
-          <div className="col-span-1">
-            <h2 className="text-xl font-bold mb-4">Job Pool</h2>
+          <div className="col-span-1 bg-white p-4 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Job Pool</h2>
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="jobPool">
                 {(provided) => (
@@ -291,36 +159,28 @@ const Calendar = () => {
           </div>
 
           {/* Calendar */}
-          <div className="col-span-3">
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="timeGridWeek"
-              headerToolbar={{
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          <div className="col-span-3 bg-white p-4 rounded-lg shadow">
+            <BigCalendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: 700 }}
+              components={{
+                event: EventComponent
               }}
-              events={routes}
-              editable={true}
-              droppable={true}
-              eventClick={handleRouteClick}
-              height="auto"
+              onSelectEvent={handleSelectEvent}
+              draggableAccessor={() => true}
+              selectable
+              resizable
             />
           </div>
         </div>
 
-        {/* Route Details Modal */}
-        {selectedRoute && (
-          <RouteDetailsModal
-            route={selectedRoute}
-            onClose={() => setSelectedRoute(null)}
-          />
-        )}
-        
-        {recurrenceModal && (
-          <RecurrenceModal
-            data={recurrenceModal}
-            onClose={() => setRecurrenceModal(null)}
+        {selectedEvent && (
+          <EventDetailsModal
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
           />
         )}
       </div>
