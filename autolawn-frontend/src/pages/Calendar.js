@@ -4,6 +4,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { format, addDays } from 'date-fns';
 import Header from '../components/Header';
 import { generateRecurringSeries, RECURRENCE_TYPES, updateSeriesOccurrence } from '../utils/recurringEvents';
 import { WiDaySunny, WiRain, WiCloudy } from 'react-icons/wi';
