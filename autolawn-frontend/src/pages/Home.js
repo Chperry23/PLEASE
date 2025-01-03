@@ -2,48 +2,51 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { FaLeaf, FaChartLine, FaUsers, FaClock } from 'react-icons/fa';
+import { FaLeaf, FaChartLine, FaUsers, FaClock, FaCalendarAlt } from 'react-icons/fa';
 
 const StatCard = ({ icon, number, text }) => (
-  <div className="bg-surface p-6 rounded-lg text-center">
-    {icon}
-    <h3 className="text-2xl font-bold mt-2">{number}</h3>
-    <p className="text-gray-400">{text}</p>
+  <div className="bg-gradient-to-br from-surface to-gray-800 p-6 rounded-lg text-center border border-gray-700 shadow-lg hover:shadow-xl transition duration-300">
+    <div className="text-blue-400">{icon}</div>
+    <h3 className="text-2xl font-bold mt-2 text-white">{number}</h3>
+    <p className="text-blue-100">{text}</p>
   </div>
 );
 
 const TestimonialCard = ({ quote, author, company }) => (
-  <div className="bg-surface p-6 rounded-lg">
-    <p className="text-gray-300 italic mb-4">"{quote}"</p>
-    <p className="font-semibold">{author}</p>
-    <p className="text-gray-400 text-sm">{company}</p>
+  <div className="bg-gradient-to-br from-surface to-gray-800 p-8 rounded-lg border border-gray-700 shadow-lg hover:shadow-xl transition duration-300">
+    <p className="text-blue-100 italic mb-4">"{quote}"</p>
+    <p className="font-semibold text-white">{author}</p>
+    <p className="text-blue-200">{company}</p>
   </div>
 );
 
 const Home = () => {
   return (
-    <div className="bg-background text-text min-h-screen">
+    <div className="bg-gradient-to-b from-gray-900 to-background text-text min-h-screen">
       <Navbar />
       
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center py-20">
-          <h1 className="text-5xl font-extrabold sm:text-6xl md:text-7xl mb-8">
-            Welcome to <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">AUTOLAWN</span>
-          </h1>
-          <p className="mt-3 max-w-lg mx-auto text-xl text-gray-300 sm:text-2xl md:mt-5 md:max-w-2xl">
+          <div className="relative">
+            <div className="absolute inset-0 blur-[100px] bg-gradient-to-r from-blue-500/30 to-purple-500/30 transform rotate-12"></div>
+            <h1 className="relative text-5xl font-extrabold sm:text-6xl md:text-7xl mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+              Welcome to AUTOLAWN
+            </h1>
+          </div>
+          <p className="mt-3 max-w-lg mx-auto text-xl text-blue-100 sm:text-2xl md:mt-5 md:max-w-2xl">
             Transform your lawn care business with powerful management tools
           </p>
           <div className="mt-8 flex justify-center gap-4">
             <Link
               to="/pricing"
-              className="px-8 py-3 rounded-md bg-primary text-white font-medium hover:bg-opacity-90 transform hover:scale-105 transition duration-200"
+              className="px-8 py-3 rounded-md bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition duration-200 shadow-lg hover:shadow-blue-500/50"
             >
               Get Started
             </Link>
             <Link
               to="/about"
-              className="px-8 py-3 rounded-md bg-surface text-white font-medium hover:bg-opacity-90 transform hover:scale-105 transition duration-200"
+              className="px-8 py-3 rounded-md bg-white/10 backdrop-blur-sm text-white font-medium hover:bg-white/20 transform hover:scale-105 transition duration-200"
             >
               Learn More
             </Link>
@@ -78,19 +81,28 @@ const Home = () => {
 
         {/* Features Section */}
         <div className="py-16">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose AutoLawn?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-blue-100">Why Choose AutoLawn?</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-surface p-8 rounded-lg transform hover:scale-105 transition duration-200">
-              <h3 className="text-xl font-semibold mb-4">Smart Scheduling</h3>
-              <p className="text-gray-300">Efficiently manage your lawn care appointments with our intelligent scheduling system.</p>
+            <div className="bg-gradient-to-br from-surface to-gray-800 p-8 rounded-lg transform hover:scale-105 transition duration-200 border border-gray-700 shadow-lg hover:shadow-xl">
+              <div className="text-blue-400 text-3xl mb-4">
+                <FaCalendarAlt />
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-white">Smart Scheduling</h3>
+              <p className="text-blue-100">Efficiently manage your lawn care appointments with our intelligent scheduling system.</p>
             </div>
-            <div className="bg-surface p-8 rounded-lg transform hover:scale-105 transition duration-200">
-              <h3 className="text-xl font-semibold mb-4">Route Optimization</h3>
-              <p className="text-gray-300">Save time and fuel with optimized route planning for your daily service runs.</p>
+            <div className="bg-gradient-to-br from-surface to-gray-800 p-8 rounded-lg transform hover:scale-105 transition duration-200 border border-gray-700 shadow-lg hover:shadow-xl">
+              <div className="text-blue-400 text-3xl mb-4">
+                <FaChartLine />
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-white">Route Optimization</h3>
+              <p className="text-blue-100">Save time and fuel with optimized route planning for your daily service runs.</p>
             </div>
-            <div className="bg-surface p-8 rounded-lg transform hover:scale-105 transition duration-200">
-              <h3 className="text-xl font-semibold mb-4">Customer Management</h3>
-              <p className="text-gray-300">Keep all your customer information organized and accessible in one place.</p>
+            <div className="bg-gradient-to-br from-surface to-gray-800 p-8 rounded-lg transform hover:scale-105 transition duration-200 border border-gray-700 shadow-lg hover:shadow-xl">
+              <div className="text-blue-400 text-3xl mb-4">
+                <FaUsers />
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-white">Customer Management</h3>
+              <p className="text-blue-100">Keep all your customer information organized and accessible in one place.</p>
             </div>
           </div>
         </div>
