@@ -38,7 +38,7 @@ import MaterialCalculator from './pages/MaterialCalculator'; // Adjust path as n
 import CalendarPage from './pages/Calendar'; // Adjust the path if necessary
 
 // Add this import
-import AboutUs from './pages/AboutUs';
+import About from './pages/About';
 
 function App() {
   return (
@@ -158,7 +158,7 @@ function App() {
             } />
 
             {/* Add this route inside your Routes component */}
-            <Route path="/about" element={<AboutUs />} />
+            <Route path="/about" element={<About />} />
           </Routes>
         </div>
       </Router>
