@@ -1,11 +1,11 @@
 import React from 'react';
-import Header from '../components/Header';
+import Navbar from '../components/Navbar';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
 const About = () => {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Navbar />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="bg-surface rounded-lg shadow-xl overflow-hidden">
