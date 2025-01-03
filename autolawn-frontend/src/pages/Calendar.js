@@ -58,6 +58,7 @@ const Calendar = () => {
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [showRouteDetails, setShowRouteDetails] = useState(false);
+  const [routeSelectionCallback, setRouteSelectionCallback] = useState(null);
 
   // Fetch active jobs for the job pool
   useEffect(() => {
@@ -225,10 +226,67 @@ const Calendar = () => {
     }
   });
 
+  const calculateDateFromPosition = (dropPoint, calendarRect) => {
+    const hourHeight = (calendarRect.height - 50) / 24; // Approximate header height of 50px
+    const minutesFromTop = ((dropPoint.y - calendarRect.top - 50) / hourHeight) * 60;
+    
+    const date = new Date();
+    date.setHours(Math.floor(minutesFromTop / 60));
+    date.setMinutes(Math.round(minutesFromTop % 60));
+    
+    // Calculate day based on x position
+    const dayWidth = calendarRect.width / 7;
+    const dayIndex = Math.floor((dropPoint.x - calendarRect.left) / dayWidth);
+    const currentDay = startOfWeek(date);
+    date.setDate(currentDay.getDate() + dayIndex);
+    
+    return date;
+  };
+
   const moveEvent = ({ event, start, end }) => {
-    setEvents(prev => prev.map(ev => 
-      ev.id === event.id ? { ...ev, start, end } : ev
-    ));
+    const dateKey = format(event.start, 'yyyy-MM-dd');
+    const newDateKey = format(start, 'yyyy-MM-dd');
+    
+    setEvents(prev => {
+      const filtered = prev.filter(e => e.id !== event.id);
+      return [...filtered, { ...event, start, end }];
+    });
+
+    // Update route if event is part of one
+    if (event.routeId) {
+      setRoutes(prev => {
+        const updatedRoutes = { ...prev };
+        
+        // Remove from old route
+        if (updatedRoutes[dateKey]) {
+          const oldRouteIndex = updatedRoutes[dateKey].findIndex(r => r.id === event.routeId);
+          if (oldRouteIndex !== -1) {
+            updatedRoutes[dateKey][oldRouteIndex].events = 
+              updatedRoutes[dateKey][oldRouteIndex].events.filter(e => e.id !== event.id);
+          }
+        }
+        
+        // Add to new route
+        if (!updatedRoutes[newDateKey]) {
+          updatedRoutes[newDateKey] = [{
+            id: event.routeId,
+            date: start,
+            events: [],
+            details: { totalRevenue: 0, totalDuration: 0, jobCount: 0 }
+          }];
+        }
+        
+        const newRouteIndex = updatedRoutes[newDateKey].findIndex(r => r.id === event.routeId);
+        if (newRouteIndex !== -1) {
+          const updatedEvent = { ...event, start, end };
+          updatedRoutes[newDateKey][newRouteIndex].events.push(updatedEvent);
+          updatedRoutes[newDateKey][newRouteIndex].details = 
+            calculateRouteDetails(updatedRoutes[newDateKey][newRouteIndex].events);
+        }
+        
+        return updatedRoutes;
+      });
+    }
   };
 
   const EventComponent = ({ event }) => (
